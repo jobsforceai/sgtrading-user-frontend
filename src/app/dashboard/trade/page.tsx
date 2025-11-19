@@ -206,6 +206,9 @@ export default function TradePage() {
       return liveTicks.find(t => t.symbol === activeSymbol);
   }, [liveTicks, activeSymbol]);
 
+  const activeInstrument = useMemo(() => {
+      return instruments.find(i => i.symbol === activeSymbol);
+  }, [instruments, activeSymbol]);
 
   useEffect(() => {
     async function fetchInstruments() {
@@ -277,6 +280,7 @@ export default function TradePage() {
                 data={processedChartData}
                 liveTick={latestTickForChart}
                 chartType={chartType}
+                decimals={activeInstrument?.decimalPlaces}
             />
         </div>
         <TradePanel 

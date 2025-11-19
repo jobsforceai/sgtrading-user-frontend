@@ -31,6 +31,7 @@ interface ChartComponentProps {
     backgroundColor?: string;
     textColor?: string;
   };
+  decimals?: number;
 }
 
 export const ChartComponent = ({
@@ -38,6 +39,7 @@ export const ChartComponent = ({
   liveTick,
   chartType,
   colors: { backgroundColor = '#131722', textColor = '#d1d5db' } = {},
+  decimals = 2,
 }: ChartComponentProps) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -64,6 +66,12 @@ export const ChartComponent = ({
     });
     chartRef.current = chart;
 
+    const priceFormat = {
+        type: 'price' as const,
+        precision: decimals,
+        minMove: 1 / Math.pow(10, decimals),
+    };
+
     let series: ChartSeries;
 
     switch (chartType) {
@@ -72,6 +80,7 @@ export const ChartComponent = ({
           lineColor: '#2962FF',
           topColor: 'rgba(41, 98, 255, 0.4)',
           bottomColor: 'rgba(41, 98, 255, 0)',
+          priceFormat,
         }) as ISeriesApi<'Area'>;
         break;
       }
@@ -79,6 +88,7 @@ export const ChartComponent = ({
         series = chart.addSeries(BarSeries, {
           upColor: '#26a69a',
           downColor: '#ef5350',
+          priceFormat,
         }) as ISeriesApi<'Bar'>;
         break;
       }
@@ -90,6 +100,7 @@ export const ChartComponent = ({
           borderUpColor: '#26a69a',
           wickDownColor: '#ef5350',
           wickUpColor: '#26a69a',
+          priceFormat,
         }) as ISeriesApi<'Candlestick'>;
 
         priceLineRef.current = candleSeries.createPriceLine({
@@ -122,7 +133,7 @@ export const ChartComponent = ({
       window.removeEventListener('resize', handleResize);
       chart.remove();
     };
-  }, [backgroundColor, textColor, chartType]);
+  }, [backgroundColor, textColor, chartType, decimals]);
 
   // Set initial data
 // Set initial data
