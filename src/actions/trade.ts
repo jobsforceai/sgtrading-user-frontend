@@ -96,7 +96,7 @@ export async function getOpenTrades() {
   }
 }
 
-export async function getTradeHistory() {
+export async function getTradeHistory(mode?: string) {
   const cookieStore = await cookies();
 
   const token = cookieStore.get("accessToken");
@@ -108,7 +108,8 @@ export async function getTradeHistory() {
   }
 
   try {
-    const { data } = await api.get("/trades/history", {
+    const url = mode ? `/trades/history?mode=${mode}` : "/trades/history";
+    const { data } = await api.get(url, {
       headers: {
         Authorization: `Bearer ${token.value}`,
       },

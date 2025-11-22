@@ -14,6 +14,7 @@ const DynamicChart = dynamic(() => import('./ChartComponent').then(mod => mod.Ch
     textColor?: string;
   };
   decimals?: number;
+  openTrades?: any[];
 }>;
 
 export default DynamicChart;

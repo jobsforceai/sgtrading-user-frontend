@@ -22,6 +22,7 @@ export const useMarketSocket = () => {
     });
 
     socket.on('market:ticks', (data: MarketTick[]) => {
+      console.log('WS Symbols received:', data.map(t => t.symbol));
       setTicks(data);
     });
 

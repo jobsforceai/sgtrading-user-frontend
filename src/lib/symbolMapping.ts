@@ -1,14 +1,30 @@
-// A simple mapping to convert symbols for different API endpoints.
-const mapping: { [key: string]: string } = {
-  btcusdt: 'BTC-USD',
-  ethusdt: 'ETH-USD',
+// Mapping from API symbol format to Backend Subscription format
+// API: BTCUSDT, EURUSD=X, AAPL
+// Backend: btcusdt, eur_usd, aapl
+
+export const toBackendSymbol = (apiSymbol: string): string => {
+  if (!apiSymbol) return '';
+  
+  const s = apiSymbol.toLowerCase();
+
+  // Forex: EURUSD=X -> eur_usd
+  if (s.includes('=x')) {
+    const raw = s.replace('=x', ''); // eurusd
+    // Insert underscore after 3rd char (standard forex pair length)
+    if (raw.length === 6) {
+      return `${raw.substring(0, 3)}_${raw.substring(3)}`;
+    }
+    return raw;
+  }
+
+  // Crypto: BTCUSDT -> btcusdt (already lowercased)
+  // Stocks: AAPL -> aapl (already lowercased)
+  
+  return s;
 };
 
-/**
- * Converts a symbol to the format expected by the historical data endpoint (Yahoo Finance).
- * @param symbol The input symbol (e.g., 'btcusdt').
- * @returns The converted symbol (e.g., 'BTC-USD').
- */
 export const toYahooFinanceSymbol = (symbol: string): string => {
-  return mapping[symbol.toLowerCase()] || symbol;
+  // Per documentation: "Use the internal backend symbol format for all interactions... including Fetching historical data."
+  // So we simply return the backend symbol format here.
+  return toBackendSymbol(symbol);
 };
