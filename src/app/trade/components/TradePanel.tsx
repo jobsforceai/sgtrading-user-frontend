@@ -30,7 +30,7 @@ export default function TradePanel({
   createTradeState: CreateTradeState | undefined;
   tradingMode: string;
   isTradePanelSidebarOpen: boolean;
-  setIsTradePanelSidebarOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setIsTradePanelSidebarOpen: (isOpen: boolean) => void;
 }) {
   const { wallet } = useUserStore();
   const [stake, setStake] = useState<number>(10);
@@ -46,7 +46,7 @@ export default function TradePanel({
   return (
     <div className="relative">
       <button
-        onClick={() => setIsTradePanelSidebarOpen((s) => !s)}
+        onClick={() => setIsTradePanelSidebarOpen(!isTradePanelSidebarOpen)}
         className="absolute top-0 left-0 z-20 w-8 h-full flex items-center justify-center text-white rounded-full cursor-pointer transition-colors"
         aria-label={isTradePanelSidebarOpen ? 'Close trade panel' : 'Open trade panel'}
       >
