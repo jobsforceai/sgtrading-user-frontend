@@ -68,25 +68,91 @@ export async function requestOtp(prevState: unknown, formData: FormData) {
 }
 
 export async function login(prevState: unknown, formData: FormData) {
+
   const validatedFields = loginSchema.safeParse(Object.fromEntries(formData.entries()));
 
+
+
   if (!validatedFields.success) {
+
     return {
+
       error: 'Invalid fields',
+
     };
+
   }
 
+
+
   try {
+
     const { data } = await api.post('/auth/login', validatedFields.data);
+
     return {
+
       data,
+
     };
+
   } catch (error) {
+
      const errorMessage = isAxiosError(error) && error.response?.data?.message
+
       ? (error.response.data.message as string)
+
       : 'An error occurred';
+
     return {
+
       error: errorMessage,
+
     };
+
   }
+
+}
+
+
+
+export async function refreshToken(token: string) {
+
+  try {
+
+    // We don't use the global api instance here to avoid interceptor recursion
+
+    const { data } = await api.post('/auth/refresh', { refreshToken: token }, {
+
+      headers: {
+
+        Authorization: `Bearer ${token}` // Send the refresh token in the header
+
+      }
+
+    });
+
+    return {
+
+      data,
+
+    };
+
+  } catch (error) {
+
+    const errorMessage =
+
+      isAxiosError(error) && error.response?.data?.message
+
+        ? (error.response.data.message as string)
+
+        : 'An error occurred';
+
+    return {
+
+      error: errorMessage,
+
+    };
+
+  }
+
 }

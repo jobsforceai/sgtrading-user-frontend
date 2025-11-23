@@ -1,32 +1,76 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
-  Menu,
   Activity,
   Wifi,
   WifiOff,
-  PanelLeftClose,
-  PanelLeftOpen,
   Shield,
   Bot,
   ChevronRight,
   ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { useSubscriptionMarketData, MarketTick } from '@/hooks/useSubscriptionMarketData';
 import { getInstruments } from '@/actions/market';
 import { getHistoricalData, createTrade, getOpenTrades, getTradeHistory } from '@/actions/trade';
 import { getWallet } from '@/actions/user';
-import { toYahooFinanceSymbol, toBackendSymbol } from '@/lib/symbolMapping';
+import { toBackendSymbol } from '@/lib/symbolMapping';
 import { useActionState } from 'react';
 import DynamicChart from '@/components/DynamicChart';
 import { ChartTypeSelector } from '@/components/ChartTypeSelector';
 import { convertToHeikinAshi } from '@/lib/heikinAshi';
 import { useUserStore } from '@/store/user';
+import TradePanel from './components/TradePanel';
+import Toolbar from './components/Toolbar';
+import Header from '@/components/Header';
+
+type Instrument = {
+  _id: string;
+  symbol: string;
+  displayName: string;
+  type: string;
+  decimalPlaces: number;
+  defaultPayoutPercent: number;
+};
+
+type Trade = {
+  _id: string;
+  botId?: string;
+  instrumentSymbol: string;
+  symbol: string;
+  direction: 'UP' | 'DOWN';
+  stakeUsd: number;
+  entryPrice: number;
+  exitPrice?: number;
+  createdAt: string;
+  expiresAt: string;
+  settledAt: string;
+  closedAt: string;
+  outcome: 'WIN' | 'LOSS' | 'DRAW';
+  payoutAmount: number;
+  isInsured: boolean;
+  platformFee: number;
+  mode: 'LIVE' | 'DEMO';
+};
+
+type HistoricalData = {
+    time: number;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+};
+
+// Constants for layout heights
+const HEADER_HEIGHT = 40; // h-10 is 40px
+const TOOLBAR_HEIGHT = 36; // h-9 is 36px
+const MIN_TRADES_PANEL_HEIGHT = 40; // Minimum height for the trades panel when collapsed/dragged
+const MIN_CHART_HEIGHT = 100; // Minimum height for the chart area
 
 // --- Components ---
 
-const Header = ({ connectionStatus }: { connectionStatus: string }) => (
+const TradePageHeader = ({ connectionStatus }: { connectionStatus: string }) => (
     <div className="bg-[#1e222d] border-b border-gray-700 h-10 flex items-center justify-between px-2 select-none text-xs text-gray-300">
     <div className="flex items-center space-x-4">
       <div className="flex items-center font-bold text-blue-500">
@@ -49,30 +93,12 @@ const Header = ({ connectionStatus }: { connectionStatus: string }) => (
   </div>
 );
 
-const Toolbar = ({
-  isSidebarOpen,
-  setIsSidebarOpen,
-}: {
-  isSidebarOpen: boolean;
-  setIsSidebarOpen: (open: boolean) => void;
-}) => (
-  <div className="bg-[#2a2e39] border-b border-gray-700 h-9 flex items-center px-2 space-x-2 overflow-x-auto scrollbar-hide select-none">
-    <div className="flex space-x-1 pr-4 border-r border-gray-600">
-        <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-1 hover:bg-gray-700 rounded">
-            {isSidebarOpen ? <PanelLeftClose className="w-4 h-4 text-gray-400" /> : <PanelLeftOpen className="w-4 h-4 text-gray-400" />}
-        </button>
-    </div>
-  </div>
-);
-
 const MarketWatch = ({
   symbols,
-  prices,
   activeSymbol,
   onSelectSymbol,
 }: {
-  symbols: any[];
-  prices: Record<string, MarketTick>;
+  symbols: Instrument[];
   activeSymbol: string;
   onSelectSymbol: (symbol: string) => void;
 }) => {
@@ -99,7 +125,6 @@ const MarketWatch = ({
     <div className="absolute top-0 left-0 h-full w-80 z-30 shadow-xl bg-[#1e222d] border-r border-gray-700 flex flex-col">
       <div className="h-8 flex items-center justify-between px-2 bg-[#2a2e39] border-b border-gray-700">
         <span className="text-xs font-semibold text-gray-300">Market Watch</span>
-        <Menu className="w-3 h-3 text-gray-400 cursor-pointer" />
       </div>
       <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600">
         <table className="w-full text-right border-collapse">
@@ -118,7 +143,6 @@ const MarketWatch = ({
 
               return (
                 <React.Fragment key={cat.id}>
-                  {/* Category Header */}
                   <tr 
                     onClick={() => toggleSection(cat.id)}
                     className="bg-[#232731] cursor-pointer hover:bg-[#2a2e39] border-b border-gray-700 select-none"
@@ -129,7 +153,6 @@ const MarketWatch = ({
                     </td>
                   </tr>
                   
-                  {/* Asset Rows */}
                   {isOpen && catSymbols.map((sym) => (
                     <tr
                       key={sym.symbol}
@@ -156,118 +179,6 @@ const MarketWatch = ({
   );
 };
 
-const TradePanel = ({
-    instruments,
-    selectedInstrument,
-    setSelectedInstrument,
-    createTradeFormAction,
-    createTradeState,
-    tradingMode,
-}: {
-    instruments: any[];
-    selectedInstrument: string;
-    setSelectedInstrument: (symbol: string) => void;
-    createTradeFormAction: (payload: FormData) => void;
-    createTradeState: { error?: string; data?: any } | undefined;
-    tradingMode: string;
-}) => {
-    const { wallet } = useUserStore();
-    const [stake, setStake] = useState<number>(10);
-
-    const currentBalance = wallet
-        ? tradingMode === 'LIVE'
-            ? wallet.liveBalanceUsd
-            : wallet.demoBalanceUsd
-        : 0;
-
-    const isInsufficientFunds = stake > currentBalance;
-
-    return (
-        <div className="w-full lg:w-80 bg-[#1e222d] p-4 flex-shrink-0 border-l border-gray-700">
-            <div className="space-y-6">
-                <h2 className="text-xl font-semibold text-center text-white">Trade</h2>
-                <div className="flex justify-center">
-                    <span className={`px-3 py-1 text-xs font-bold rounded-full ${tradingMode === 'LIVE' ? 'bg-green-600 text-white' : 'bg-orange-500 text-white'}`}>
-                        {tradingMode} MODE
-                    </span>
-                </div>
-                <form action={createTradeFormAction} className="space-y-4">
-                    <input type="hidden" name="mode" value={tradingMode} />
-                    <div>
-                        <label htmlFor="instrument" className="block text-sm font-medium text-gray-400">Asset</label>
-                        <select
-                            id="instrument"
-                            name="symbol"
-                            className="w-full px-3 py-2 mt-1 bg-gray-800 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-white"
-                            value={selectedInstrument}
-                            onChange={(e) => setSelectedInstrument(e.target.value)}
-                        >
-                            {instruments.map((instrument) => (
-                                <option key={instrument._id} value={instrument.symbol}>
-                                    {instrument.displayName}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                    <div>
-                        <label htmlFor="stake" className="block text-sm font-medium text-gray-400">
-                            Investment
-                            <span className="float-right text-xs text-gray-500">
-                                Avail: ${currentBalance.toFixed(2)}
-                            </span>
-                        </label>
-                        <input
-                            id="stake"
-                            name="stakeUsd"
-                            type="number"
-                            required
-                            className={`w-full px-3 py-2 mt-1 bg-gray-800 border rounded-md shadow-sm focus:outline-none sm:text-sm text-white ${isInsufficientFunds ? 'border-red-500 focus:border-red-500' : 'border-gray-600 focus:border-indigo-500'}`}
-                            value={stake}
-                            onChange={(e) => setStake(parseFloat(e.target.value))}
-                            min="1"
-                        />
-                        {isInsufficientFunds && (
-                            <p className="text-xs text-red-500 mt-1">Insufficient {tradingMode.toLowerCase()} funds</p>
-                        )}
-                    </div>
-                    <div>
-                        <label htmlFor="expiry" className="block text-sm font-medium text-gray-400">Duration (s)</label>
-                        <input
-                            id="expiry"
-                            name="expirySeconds"
-                            type="number"
-                            required
-                            className="w-full px-3 py-2 mt-1 bg-gray-800 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-white"
-                            defaultValue="60"
-                        />
-                    </div>
-                    <div className="flex space-x-4">
-                        <button 
-                            type="submit" 
-                            name="direction" 
-                            value="UP" 
-                            disabled={isInsufficientFunds}
-                            className={`w-full px-4 py-3 text-sm font-bold text-white rounded-md transition-opacity ${isInsufficientFunds ? 'bg-green-800 opacity-50 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
-                        >
-                            Up
-                        </button>
-                        <button 
-                            type="submit" 
-                            name="direction" 
-                            value="DOWN" 
-                            disabled={isInsufficientFunds}
-                            className={`w-full px-4 py-3 text-sm font-bold text-white rounded-md transition-opacity ${isInsufficientFunds ? 'bg-red-800 opacity-50 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700'}`}
-                        >
-                            Down
-                        </button>
-                    </div>
-                    {createTradeState?.error && <p className="text-sm text-red-500 text-center">{createTradeState.error}</p>}
-                    {createTradeState?.data && <p className="text-sm text-green-500 text-center">Trade created!</p>}
-                </form>
-            </div>
-        </div>
-    );
-};
 
 const Countdown = ({ targetDate }: { targetDate: string }) => {
     const [timeLeft, setTimeLeft] = useState<string>('');
@@ -293,7 +204,7 @@ const Countdown = ({ targetDate }: { targetDate: string }) => {
     return <span>{timeLeft}</span>;
 };
 
-const TradesTable = ({ trades, type, prices }: { trades: any[], type: 'OPEN' | 'HISTORY', prices?: Record<string, MarketTick> }) => (
+const TradesTable = ({ trades, type, prices }: { trades: Trade[], type: 'OPEN' | 'HISTORY', prices?: Record<string, MarketTick> }) => (
     <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600">
         <table className="w-full text-left text-xs text-gray-400">
             <thead className="bg-[#2a2e39] sticky top-0 z-10">
@@ -314,15 +225,11 @@ const TradesTable = ({ trades, type, prices }: { trades: any[], type: 'OPEN' | '
                      <tr><td colSpan={type === 'OPEN' ? 8 : 9} className="p-4 text-center">No {type.toLowerCase()} trades</td></tr>
                 ) : (
                     trades.map((t) => {
-                        // Live Status Logic for OPEN trades
                         let currentPrice = 0;
                         let isWinning = false;
                         let statusText = '...';
                         
                         if (type === 'OPEN' && prices) {
-                            const backendSym = toBackendSymbol(t.instrumentSymbol || t.symbol); // API uses instrumentSymbol in history, symbol in payload? Check keys.
-                            // The snippet shows "instrumentSymbol". The create payload used "symbol".
-                            // Let's support both.
                             const sym = t.instrumentSymbol || t.symbol;
                             const backendSymMapped = toBackendSymbol(sym);
                             
@@ -338,14 +245,11 @@ const TradesTable = ({ trades, type, prices }: { trades: any[], type: 'OPEN' | '
                             }
                         }
 
-                        // Payout Calculation for HISTORY
                         let payoutDisplay = '0.00';
                         if (type === 'HISTORY') {
-                            // API now provides 'payoutAmount' directly
                             if (t.payoutAmount !== undefined && t.payoutAmount !== null) {
                                 payoutDisplay = Number(t.payoutAmount).toFixed(2);
                             } else {
-                                // Fallback if field missing
                                 payoutDisplay = '0.00';
                             }
                         }
@@ -402,39 +306,40 @@ const TradesTable = ({ trades, type, prices }: { trades: any[], type: 'OPEN' | '
 export default function TradePage() {
   const [activeSymbol, setActiveSymbol] = useState('');
   const [chartType, setChartType] = useState<'Candlestick' | 'Area' | 'Bar' | 'Heikin Ashi'>('Candlestick');
-  const [instruments, setInstruments] = useState<any[]>([]);
-  const [historicalData, setHistoricalData] = useState<any[]>([]);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [instruments, setInstruments] = useState<Instrument[]>([]);
+  const [historicalData, setHistoricalData] = useState<HistoricalData[]>([]);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isTradePanelSidebarOpen, setIsTradePanelSidebarOpen] = useState(true);
+  const [isTradesPanelOpen, setIsTradesPanelOpen] = useState(true);
+//   const [isDragging, setIsDragging] = useState(false);
+//   const [tradesPanelHeight, setTradesPanelHeight] = useState(300); // Initial height in pixels
+//   const panelRef = React.useRef<HTMLDivElement>(null);
   const [createTradeState, createTradeFormAction] = useActionState(createTrade, undefined);
   
   const { tradingMode, setWallet } = useUserStore();
   const [activeTab, setActiveTab] = useState<'OPEN' | 'HISTORY'>('OPEN');
-  const [openTrades, setOpenTrades] = useState<any[]>([]);
-  const [historyTrades, setHistoryTrades] = useState<any[]>([]);
+  const [openTrades, setOpenTrades] = useState<Trade[]>([]);
+  const [historyTrades, setHistoryTrades] = useState<Trade[]>([]);
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const prevOpenTradesRef = React.useRef<Set<string>>(new Set());
 
-  // Helper to refresh wallet
-  const fetchWallet = async () => {
+  const fetchWallet = useCallback(async () => {
       const res = await getWallet();
       if (res.data) {
           setWallet(res.data);
       }
-  };
+  }, [setWallet]);
 
-  // Initial data fetch on mount (fixes reload issue)
   useEffect(() => {
       fetchWallet();
-  }, []);
+  }, [fetchWallet]);
 
-  // Refresh wallet when a new trade is created (deduct stake)
   useEffect(() => {
       if (createTradeState?.data) {
           fetchWallet();
       }
-  }, [createTradeState]);
+  }, [createTradeState, fetchWallet]);
 
-  // Only subscribe to the active symbol to save bandwidth
   const subscriptionSymbols = useMemo(() => {
     if (!activeSymbol) return [];
     return [toBackendSymbol(activeSymbol)];
@@ -458,25 +363,23 @@ export default function TradePage() {
     }
   }, [notification]);
 
-  const fetchInstruments = async () => {
-      const result = await getInstruments();
-      if (result.data && result.data.length > 0) {
-        setInstruments(result.data);
-      }
-  };
-
-  // Initial fetch and periodic refresh for instruments
   useEffect(() => {
+    const fetchInstruments = async () => {
+        const result = await getInstruments();
+        if (result.data && result.data.length > 0) {
+          setInstruments(result.data);
+        }
+    };
     fetchInstruments();
-    const interval = setInterval(fetchInstruments, 30000); // 30s refresh
+    const interval = setInterval(fetchInstruments, 30000);
     return () => clearInterval(interval);
   }, []);
 
-  // Validate active symbol when instruments list changes
   useEffect(() => {
       if (instruments.length > 0 && activeSymbol) {
-          const exists = instruments.find((i: any) => i.symbol === activeSymbol);
+          const exists = instruments.find((i) => i.symbol === activeSymbol);
           if (!exists) {
+              // eslint-disable-next-line react-hooks/set-state-in-effect
               setNotification({ 
                   message: `Asset ${activeSymbol} is currently unavailable. Switching to default.`, 
                   type: 'error' 
@@ -486,25 +389,23 @@ export default function TradePage() {
       } else if (instruments.length > 0 && !activeSymbol) {
           setActiveSymbol(instruments[0].symbol);
       }
-  }, [instruments]);
+  }, [instruments, activeSymbol]);
 
   useEffect(() => {
     if (!activeSymbol) return;
     
-    setHistoricalData([]); // Clear previous data
     const loadInitialData = async () => {
+      setHistoricalData([]);
       const backendSymbol = toBackendSymbol(activeSymbol);
-      // API expects seconds for from/to
       const now = Math.floor(Date.now() / 1000);
       const twentyFourHoursAgo = now - (24 * 60 * 60);
       
       const result = await getHistoricalData(backendSymbol, '1', twentyFourHoursAgo, now);
       
       if (result.data) {
-        // API returns time in SECONDS now (per sgcdocs.md), so no need to divide by 1000
-        const formattedData = result.data.map((d: any) => ({
+        const formattedData: HistoricalData[] = result.data.map((d: HistoricalData) => ({
             ...d, 
-            time: d.time // Already in seconds
+            time: d.time
         }));
         setHistoricalData(formattedData);
       }
@@ -512,51 +413,89 @@ export default function TradePage() {
     loadInitialData();
   }, [activeSymbol]);
 
-  // Fetch Trades Logic
+//   const handleMouseMove = useCallback((moveEvent: MouseEvent) => {
+//     if (!isDragging || !panelRef.current) return;
+
+//     const viewportHeight = window.innerHeight;
+//     const headerToolbarHeight = HEADER_HEIGHT + TOOLBAR_HEIGHT;
+//     const availableHeight = viewportHeight - headerToolbarHeight;
+    
+//     // Calculate the new height based on mouse position relative to the top of the viewport
+//     const newHeight = availableHeight - moveEvent.clientY;
+    
+//     // Define min and max heights for the trades panel
+//     const maxTradesPanelHeight = availableHeight - MIN_CHART_HEIGHT; 
+
+//     // Clamp the new height within the bounds
+//     const clampedHeight = Math.max(MIN_TRADES_PANEL_HEIGHT, Math.min(newHeight, maxTradesPanelHeight));
+
+//     setTradesPanelHeight(clampedHeight);
+//   }, [isDragging, tradesPanelHeight]); // Include tradesPanelHeight as dependency
+
+//   const handleMouseUp = useCallback(() => {
+//     setIsDragging(false);
+//   }, []);
+
+//   const handleMouseDown = useCallback((e: React.MouseEvent) => {
+//     setIsDragging(true);
+//     // No need to set initial height here, it's handled by tradesPanelHeight state
+//     e.preventDefault(); // Prevent text selection during drag
+//   }, []);
+
+//   useEffect(() => {
+//     if (isDragging) {
+//       window.addEventListener('mousemove', handleMouseMove);
+//       window.addEventListener('mouseup', handleMouseUp);
+//     } else {
+//       window.removeEventListener('mousemove', handleMouseMove);
+//       window.removeEventListener('mouseup', handleMouseUp);
+//     };
+//     return () => {
+//       window.removeEventListener('mousemove', handleMouseMove);
+//       window.removeEventListener('mouseup', handleMouseUp);
+//     };
+//   }, [isDragging, handleMouseMove, handleMouseUp]);
+
   useEffect(() => {
       const fetchTrades = async () => {
-          // Always fetch open trades to track status changes
           const openRes = await getOpenTrades();
-          let currentOpenTrades: any[] = [];
+          let currentOpenTrades: Trade[] = [];
           
           if (openRes.data) {
-              currentOpenTrades = openRes.data.filter((t: any) => t.mode === tradingMode);
+            // debug: log the raw open trades response so we can trace reload issues
+            // eslint-disable-next-line no-console
+            console.log('getOpenTrades response', openRes);
+              currentOpenTrades = openRes.data.filter((t: Trade) => t.mode === tradingMode);
               setOpenTrades(currentOpenTrades);
 
-              // Check for settled trades
-              const currentIds = new Set(currentOpenTrades.map((t: any) => t._id));
+              const currentIds = new Set(currentOpenTrades.map((t: Trade) => t._id));
               const prevIds = prevOpenTradesRef.current;
 
-              // If we had trades before, check if any disappeared
               if (prevIds.size > 0) {
                   const settledIds = [...prevIds].filter(id => !currentIds.has(id));
                   
                   if (settledIds.length > 0) {
-                      // fetch history to see result
                       const historyRes = await getTradeHistory(tradingMode);
                       if (historyRes.data) {
-                          const recentHistory = historyRes.data;
+                          const recentHistory: Trade[] = historyRes.data;
                           settledIds.forEach(id => {
-                              const trade = recentHistory.find((t: any) => t._id === id);
+                              const trade = recentHistory.find((t) => t._id === id);
                               if (trade) {
                                   const isWin = trade.outcome === 'WIN';
-                                  const payoutAmt = trade.payoutAmount ?? 0; // Use payoutAmount from API
+                                  const payoutAmt = trade.payoutAmount ?? 0;
                                   setNotification({
                                       message: `Trade ${trade.symbol} ${trade.outcome}! Payout: $${Number(payoutAmt).toFixed(2)}`,
                                       type: isWin ? 'success' : 'error'
                                   });
-                                  // Refresh wallet on settlement
                                   fetchWallet();
                               }
                           });
                       }
                   }
               }
-              // Update ref
               prevOpenTradesRef.current = currentIds;
           }
 
-          // Only fetch history if tab is active
           if (activeTab === 'HISTORY') {
               const res = await getTradeHistory(tradingMode);
               if (res.data) {
@@ -566,17 +505,15 @@ export default function TradePage() {
       };
       
       fetchTrades();
-      // Refresh every 3 seconds to keep open trades updated and check for closed ones
       const interval = setInterval(fetchTrades, 3000);
       return () => clearInterval(interval);
-  }, [tradingMode, activeTab, createTradeState]); // Re-fetch if mode changes, tab changes, or a new trade is placed
+  }, [tradingMode, activeTab, createTradeState, fetchWallet]);
 
-  // Simple connection status inference
   const connectionStatus = Object.keys(ticks).length > 0 ? 'Connected' : 'Connecting';
 
   const processedChartData = useMemo(() => {
     if (chartType === 'Heikin Ashi') {
-      return convertToHeikinAshi(historicalData);
+      return convertToHeikinAshi(historicalData as any);
     }
     if (chartType === 'Area') {
       return historicalData.map((d) => ({ time: d.time, value: d.close }));
@@ -585,8 +522,43 @@ export default function TradePage() {
   }, [historicalData, chartType]);
 
   const chartTrades = useMemo(() => {
-      return openTrades.filter(t => t.symbol === activeSymbol);
+    return openTrades.filter(t => ((t.instrumentSymbol || t.symbol) === activeSymbol));
   }, [openTrades, activeSymbol]);
+
+  // Map open trades to simple overlay points for the chart (id, time (s), price, color, text)
+  const openTradePoints = useMemo(() => {
+    const normalizeTime = (val: any): number | null => {
+      if (val == null) return null;
+      if (typeof val === 'number') return val > 1e12 ? Math.floor(val / 1000) : Math.floor(val);
+      if (typeof val === 'string') {
+        const n = Number(val);
+        if (Number.isFinite(n)) return n > 1e12 ? Math.floor(n / 1000) : Math.floor(n);
+        const ms = Date.parse(val);
+        if (!Number.isNaN(ms)) return Math.floor(ms / 1000);
+        return null;
+      }
+      if (typeof val === 'object' && val !== null) {
+        const day = (val as any).day;
+        if (day) {
+          const ms = Date.parse(day);
+          if (!Number.isNaN(ms)) return Math.floor(ms / 1000);
+        }
+      }
+      return null;
+    };
+
+    return chartTrades.map((t) => {
+      const rawTime = (t as any).openAt || (t as any).openedAt || t.createdAt || (t as any).time;
+      const ts = normalizeTime(rawTime);
+      if (ts == null) return null;
+      const time = Math.floor(ts / 5) * 5;
+      const price = (t as any).entryPrice ?? (t as any).price ?? null;
+      const color = t.direction === 'UP' ? '#22c55e' : '#ef4444';
+      const text = (t as any).stakeUsd ? `$${Number((t as any).stakeUsd).toFixed(0)}` : '';
+      const expiry = (new Date(t.expiresAt).getTime() - new Date(t.createdAt).getTime()) / 1000;
+      return { id: t._id, time, price, color, text, expiry };
+    }).filter((x): x is any => !!x);
+  }, [chartTrades]);
 
   return (
     <div className="flex flex-col h-screen bg-[#131722] text-gray-300 overflow-hidden font-sans relative">
@@ -599,20 +571,24 @@ export default function TradePage() {
       <Toolbar
         isSidebarOpen={isSidebarOpen}
         setIsSidebarOpen={setIsSidebarOpen}
+        instruments={instruments}
+        activeSymbol={activeSymbol}
+        activeInstrument={activeInstrument}
+        onSelectSymbol={setActiveSymbol}
+        isTradeOpen={isTradePanelSidebarOpen}
+        setIsTradeOpen={setIsTradePanelSidebarOpen}
       />
 
       <div className="flex flex-1 overflow-hidden relative">
         {isSidebarOpen && (
             <MarketWatch
                 symbols={instruments}
-                prices={ticks}
                 activeSymbol={activeSymbol}
                 onSelectSymbol={setActiveSymbol}
             />
         )}
         
-        <div className="flex-1 flex flex-col relative bg-black">
-            {/* Asset Info Overlay when Sidebar Closed */}
+        <div className="flex-1 flex flex-col relative bg-black min-w-0">
             {!isSidebarOpen && activeInstrument && (
                 <div className="absolute top-14 left-2 z-20 bg-[#1e222d]/80 backdrop-blur-sm border border-gray-700 p-3 rounded shadow-lg text-white animate-in fade-in slide-in-from-left-4 duration-200">
                     <h3 className="text-lg font-bold tracking-wide">{activeInstrument.displayName}</h3>
@@ -624,37 +600,56 @@ export default function TradePage() {
                 </div>
             )}
 
-            {/* Chart Section: Takes up top 65% */}
-            <div className="relative h-[65%] border-b border-gray-800">
-                <div className="absolute top-2 right-4 z-10">
-                    <ChartTypeSelector chartType={chartType} setChartType={setChartType} />
+            <div className="flex-1 flex flex-col">
+                <div style={{ height: `calc(100% - ${isTradesPanelOpen ? 300 : MIN_TRADES_PANEL_HEIGHT}px)` }}>
+                    <div className="w-full h-full relative">
+                        <div className="absolute top-2 right-4 z-10">
+                            <ChartTypeSelector chartType={chartType} setChartType={setChartType} />
+                        </div>
+                        <DynamicChart
+                            data={processedChartData}
+                            liveTick={latestTickForChart}
+                            chartType={chartType}
+                            decimals={activeInstrument?.decimalPlaces}
+                          openTradePoints={openTradePoints}
+                        />
+                    </div>
                 </div>
-                <DynamicChart
-                    data={processedChartData}
-                    liveTick={latestTickForChart}
-                    chartType={chartType}
-                    decimals={activeInstrument?.decimalPlaces}
-                    openTrades={chartTrades}
-                />
-            </div>
-            
-            {/* Trades Section: Takes up bottom 35% */}
-            <div className="h-[35%] bg-[#1e222d] flex flex-col">
-                 <div className="flex border-b border-gray-700">
-                     <button 
-                        onClick={() => setActiveTab('OPEN')} 
-                        className={`px-4 py-2 text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === 'OPEN' ? 'text-blue-400 border-b-2 border-blue-400 bg-[#2a2e39]' : 'text-gray-500 hover:text-gray-300'}`}
-                     >
-                        Open Positions ({openTrades.length})
-                     </button>
-                     <button 
-                        onClick={() => setActiveTab('HISTORY')} 
-                        className={`px-4 py-2 text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === 'HISTORY' ? 'text-blue-400 border-b-2 border-blue-400 bg-[#2a2e39]' : 'text-gray-500 hover:text-gray-300'}`}
-                     >
-                        History
-                     </button>
-                 </div>
-                 <TradesTable trades={activeTab === 'OPEN' ? openTrades : historyTrades} type={activeTab} prices={ticks} />
+                
+                <div 
+                    // ref={panelRef}
+                    style={{ height: isTradesPanelOpen ? `300px` : `${MIN_TRADES_PANEL_HEIGHT}px` }}
+                    className="relative bg-[#1e222d] transition-all duration-100 ease-in-out"
+                >
+                    <div
+                        className="absolute top-0 left-0 w-full h-2 cursor-row-resize"
+                        // onMouseDown={handleMouseDown}
+                    />
+                    <button
+                        onClick={() => setIsTradesPanelOpen((s) => !s)}
+                        className="absolute -top-3 left-1/2 -translate-x-1/2 z-20 w-12 h-6 flex items-center justify-center bg-gray-800 text-white rounded-t-md shadow-md hover:bg-gray-700 transition-colors"
+                        aria-label={isTradesPanelOpen ? 'Close trades panel' : 'Open trades panel'}
+                    >
+                        {isTradesPanelOpen ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />}
+                    </button>
+                    <div className={`h-full flex flex-col ${isTradesPanelOpen ? 'pt-4' : 'overflow-hidden'}`}>
+                        <div className="flex border-b border-gray-700">
+                            <button 
+                                onClick={() => setActiveTab('OPEN')} 
+                                className={`px-4 py-2 text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === 'OPEN' ? 'text-blue-400 border-b-2 border-blue-400 bg-[#2a2e39]' : 'text-gray-500 hover:text-gray-300'}`}
+                            >
+                                Open Positions ({openTrades.length})
+                            </button>
+                            <button 
+                                onClick={() => setActiveTab('HISTORY')} 
+                                className={`px-4 py-2 text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === 'HISTORY' ? 'text-blue-400 border-b-2 border-blue-400 bg-[#2a2e39]' : 'text-gray-500 hover:text-gray-300'}`}
+                            >
+                                History
+                            </button>
+                        </div>
+                        {isTradesPanelOpen && <TradesTable trades={activeTab === 'OPEN' ? openTrades : historyTrades} type={activeTab} prices={ticks} />}
+                    </div>
+                </div>
             </div>
         </div>
         
@@ -665,6 +660,8 @@ export default function TradePage() {
             createTradeFormAction={createTradeFormAction}
             createTradeState={createTradeState}
             tradingMode={tradingMode}
+            isTradePanelSidebarOpen={isTradePanelSidebarOpen}
+            setIsTradePanelSidebarOpen={setIsTradePanelSidebarOpen}
         />
       </div>
     </div>

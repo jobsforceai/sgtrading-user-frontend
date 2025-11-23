@@ -1,20 +1,23 @@
+import { LandingNavbar } from '@/components/landing/LandingNavbar';
+import { Hero } from '@/components/landing/Hero';
+import { FeaturesSection } from '@/components/landing/Features';
+import { BotsSliderSection } from '@/components/landing/Slider';
+import { PortfolioSection } from '@/components/landing/portfolio';
+import { Footer } from '@/components/landing/Footer';
+
 export default function Home() {
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
-      <main className="flex flex-col items-center justify-center flex-1 px-4 text-center">
-        <h1 className="text-6xl font-bold text-gray-900">
-          Welcome to SGTrading
-        </h1>
-        <p className="mt-3 text-2xl text-gray-600">
-          The best platform for all your trading needs.
-        </p>
-        <a
-          href="/register"
-          className="px-6 py-3 mt-8 text-lg font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
-        >
-          Get Started
-        </a>
-      </main>
+    <div className="relative bg-black">
+      <LandingNavbar />
+      <Hero />
+      <div className="relative">
+        <div className="pointer-events-none absolute inset-x-0 -top-20 z-0 h-[400px] rounded-[40px] bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.55),_transparent_70%)] blur-3xl" />
+        <FeaturesSection />
+      </div>
+      <BotsSliderSection />
+      <PortfolioSection />
+      <Footer />
     </div>
+
   );
 }

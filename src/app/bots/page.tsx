@@ -6,6 +6,7 @@ import { getInstruments } from '@/actions/market';
 import { getWallet } from '@/actions/user';
 import { Play, Pause, Settings, Shield, ShieldAlert, Plus, X, Check, Trash2, Info } from 'lucide-react';
 import { useUserStore } from '@/store/user';
+import Header from '@/components/Header';
 
 export default function BotsPage() {
   const [bots, setBots] = useState<any[]>([]);
@@ -92,6 +93,8 @@ export default function BotsPage() {
   };
 
   return (
+    <>
+    <Header />
     <div className="min-h-screen bg-gray-100 p-6">
       <div className="max-w-6xl mx-auto">
         <div className="flex justify-between items-center mb-6">
@@ -387,5 +390,6 @@ export default function BotsPage() {
         </div>
       )}
     </div>
+    </>
   );
 }

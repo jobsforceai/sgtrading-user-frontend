@@ -3,8 +3,9 @@
 import { getProfile, getWallet } from '@/actions/user';
 import { useUserStore } from '@/store/user';
 import { useEffect } from 'react';
+import Header from '@/components/Header';
 
-export default function DashboardPage() {
+export default function ProfilePage() {
   const { user, wallet, setUser, setWallet } = useUserStore();
 
   useEffect(() => {
@@ -28,12 +29,14 @@ export default function DashboardPage() {
   }
 
   return (
+    <>
+    <Header />
     <div className="min-h-screen bg-gray-100">
       <div className="py-10">
         <header>
           <div className="px-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
             <h1 className="text-3xl font-bold leading-tight text-gray-900">
-              Dashboard
+              Profile
             </h1>
           </div>
         </header>
@@ -82,5 +85,6 @@ export default function DashboardPage() {
         </main>
       </div>
     </div>
+    </>
   );
 }

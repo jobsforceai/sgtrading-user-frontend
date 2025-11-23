@@ -5,7 +5,7 @@ import { useUserStore } from '@/store/user';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-export default function Header() {
+export default function Header({ connectionStatus }: { connectionStatus?: string }) {
   const { user, logout } = useAuthStore();
   const { wallet, tradingMode, setTradingMode } = useUserStore();
   const router = useRouter();
@@ -56,29 +56,29 @@ export default function Header() {
                   </button>
                 </div>
 
-                <div className="flex flex-col items-end mr-4">
+                <Link href="/profile" className="flex flex-col items-end mr-4">
                   <span className="text-xs text-gray-500 uppercase">
                     {tradingMode} Balance
                   </span>
                   <span className="text-sm font-bold text-gray-900">
                     {wallet?.currency || '$'} {currentBalance.toFixed(2)}
                   </span>
-                </div>
+                </Link>
 
                 <Link
-                  href="/dashboard"
+                  href="/profile"
                   className="px-3 py-2 text-sm font-medium text-gray-500 rounded-md hover:text-gray-700"
                 >
-                  Dashboard
+                  Profile
                 </Link>
                 <Link
-                  href="/dashboard/bots"
+                  href="/bots"
                   className="px-3 py-2 text-sm font-medium text-gray-500 rounded-md hover:text-gray-700"
                 >
                   Bots
                 </Link>
                 <Link
-                  href="/dashboard/trade"
+                  href="/trade"
                   className="px-3 py-2 text-sm font-medium text-gray-500 rounded-md hover:text-gray-700"
                 >
                   Trade
@@ -89,6 +89,9 @@ export default function Header() {
                 >
                   Logout
                 </button>
+                {connectionStatus && (
+                  <div className="ml-2 text-xs text-gray-500">{connectionStatus}</div>
+                )}
               </>
             ) : (
               <>

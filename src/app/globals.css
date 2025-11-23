@@ -24,3 +24,34 @@ body {
   color: black;
   font-family: Arial, Helvetica, sans-serif;
 }
+
+@keyframes pulse-border {
+  0% {
+    filter: blur(4px);
+    opacity: 0.7;
+  }
+
+  50% {
+    filter: blur(8px);
+    opacity: 1;
+  }
+
+  100% {
+    filter: blur(4px);
+    opacity: 0.7;
+  }
+}
+
+.animate-pulse-border {
+  animation: pulse-border 3s infinite ease-in-out;
+}
+
+@keyframes line-dash {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.animate-line-dash {
+  animation: line-dash 3s ease-out forwards;
+}

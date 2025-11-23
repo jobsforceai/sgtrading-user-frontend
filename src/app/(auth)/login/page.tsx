@@ -24,7 +24,7 @@ export default function LoginPage() {
     if (loginState?.data) {
       setUser(loginState.data.user);
       setTokens(loginState.data.tokens);
-      router.push('/dashboard');
+      router.push('/trade');
     }
   }, [loginState, setUser, setTokens, router]);
 
