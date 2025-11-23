@@ -21,13 +21,13 @@ export default function Toolbar({
   toggleSidebar,
 }: {
   isSidebarOpen: boolean;
-  setIsSidebarOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setIsSidebarOpen: (isOpen: boolean) => void;
   instruments: Instrument[];
   activeSymbol: string;
   activeInstrument: Instrument | undefined;
   onSelectSymbol: (symbol: string) => void;
   isTradeOpen: boolean;
-  setIsTradeOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setIsTradeOpen: (isOpen: boolean) => void;
   toggleTrade?: () => void;
   toggleSidebar?: () => void;
 }) {
@@ -52,7 +52,7 @@ export default function Toolbar({
                   // eslint-disable-next-line no-console
                   console.log('Toolbar: asset button clicked, current open:', open);
                   if (toggleSidebar) toggleSidebar();
-                  else setIsSidebarOpen((s) => !s);
+                  else setIsSidebarOpen(!isSidebarOpen);
                   setOpen((s) => !s);
                 }}
             aria-haspopup="true"
@@ -121,7 +121,7 @@ export default function Toolbar({
         <button
           onClick={() => {
             if (toggleTrade) toggleTrade();
-            else setIsTradeOpen((s) => !s);
+            else setIsTradeOpen(!isTradeOpen);
           }}
           aria-label="Toggle trade panel"
           aria-pressed={!!isTradeOpen}

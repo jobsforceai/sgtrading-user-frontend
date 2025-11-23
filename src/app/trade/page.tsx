@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useEffect, useMemo, useCallback, useState } from 'react';
 import {
   Activity,
   Wifi,
@@ -21,6 +21,7 @@ import DynamicChart from '@/components/DynamicChart';
 import { ChartTypeSelector } from '@/components/ChartTypeSelector';
 import { convertToHeikinAshi } from '@/lib/heikinAshi';
 import { useUserStore } from '@/store/user';
+import { useTradeStore } from '@/store/trade';
 import TradePanel from './components/TradePanel';
 import Toolbar from './components/Toolbar';
 import Header from '@/components/Header';
@@ -62,14 +63,6 @@ type HistoricalData = {
     close: number;
 };
 
-// Constants for layout heights
-const HEADER_HEIGHT = 40; // h-10 is 40px
-const TOOLBAR_HEIGHT = 36; // h-9 is 36px
-const MIN_TRADES_PANEL_HEIGHT = 40; // Minimum height for the trades panel when collapsed/dragged
-const MIN_CHART_HEIGHT = 100; // Minimum height for the chart area
-
-// --- Components ---
-
 const TradePageHeader = ({ connectionStatus }: { connectionStatus: string }) => (
     <div className="bg-[#1e222d] border-b border-gray-700 h-10 flex items-center justify-between px-2 select-none text-xs text-gray-300">
     <div className="flex items-center space-x-4">
@@ -93,15 +86,7 @@ const TradePageHeader = ({ connectionStatus }: { connectionStatus: string }) => 
   </div>
 );
 
-const MarketWatch = ({
-  symbols,
-  activeSymbol,
-  onSelectSymbol,
-}: {
-  symbols: Instrument[];
-  activeSymbol: string;
-  onSelectSymbol: (symbol: string) => void;
-}) => {
+const MarketWatch = ({ symbols, activeSymbol, onSelectSymbol }: { symbols: Instrument[], activeSymbol: string, onSelectSymbol: (symbol: string) => void }) => {
   const [openSections, setOpenSections] = useState<Set<string>>(new Set(['CRYPTO', 'FOREX', 'STOCK', 'COMMODITY']));
 
   const toggleSection = (type: string) => {
@@ -181,7 +166,7 @@ const MarketWatch = ({
 
 
 const Countdown = ({ targetDate }: { targetDate: string }) => {
-    const [timeLeft, setTimeLeft] = useState<string>('');
+  const [timeLeft, setTimeLeft] = useState<string>('');
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -304,23 +289,33 @@ const TradesTable = ({ trades, type, prices }: { trades: Trade[], type: 'OPEN' |
 );
 
 export default function TradePage() {
-  const [activeSymbol, setActiveSymbol] = useState('');
-  const [chartType, setChartType] = useState<'Candlestick' | 'Area' | 'Bar' | 'Heikin Ashi'>('Candlestick');
-  const [instruments, setInstruments] = useState<Instrument[]>([]);
-  const [historicalData, setHistoricalData] = useState<HistoricalData[]>([]);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isTradePanelSidebarOpen, setIsTradePanelSidebarOpen] = useState(true);
-  const [isTradesPanelOpen, setIsTradesPanelOpen] = useState(true);
-//   const [isDragging, setIsDragging] = useState(false);
-//   const [tradesPanelHeight, setTradesPanelHeight] = useState(300); // Initial height in pixels
-//   const panelRef = React.useRef<HTMLDivElement>(null);
+  const {
+    activeSymbol,
+    chartType,
+    instruments,
+    historicalData,
+    isSidebarOpen,
+    isTradePanelSidebarOpen,
+    isTradesPanelOpen,
+    activeTab,
+    openTrades,
+    historyTrades,
+    notification,
+    setActiveSymbol,
+    setChartType,
+    setInstruments,
+    setHistoricalData,
+    setIsSidebarOpen,
+    setIsTradePanelSidebarOpen,
+    setIsTradesPanelOpen,
+    setActiveTab,
+    setOpenTrades,
+    setHistoryTrades,
+    setNotification,
+  } = useTradeStore();
+
   const [createTradeState, createTradeFormAction] = useActionState(createTrade, undefined);
-  
   const { tradingMode, setWallet } = useUserStore();
-  const [activeTab, setActiveTab] = useState<'OPEN' | 'HISTORY'>('OPEN');
-  const [openTrades, setOpenTrades] = useState<Trade[]>([]);
-  const [historyTrades, setHistoryTrades] = useState<Trade[]>([]);
-  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const prevOpenTradesRef = React.useRef<Set<string>>(new Set());
 
   const fetchWallet = useCallback(async () => {
@@ -361,7 +356,7 @@ export default function TradePage() {
       const timer = setTimeout(() => setNotification(null), 5000);
       return () => clearTimeout(timer);
     }
-  }, [notification]);
+  }, [notification, setNotification]);
 
   useEffect(() => {
     const fetchInstruments = async () => {
@@ -373,13 +368,12 @@ export default function TradePage() {
     fetchInstruments();
     const interval = setInterval(fetchInstruments, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [setInstruments]);
 
   useEffect(() => {
       if (instruments.length > 0 && activeSymbol) {
           const exists = instruments.find((i) => i.symbol === activeSymbol);
           if (!exists) {
-              // eslint-disable-next-line react-hooks/set-state-in-effect
               setNotification({ 
                   message: `Asset ${activeSymbol} is currently unavailable. Switching to default.`, 
                   type: 'error' 
@@ -389,13 +383,14 @@ export default function TradePage() {
       } else if (instruments.length > 0 && !activeSymbol) {
           setActiveSymbol(instruments[0].symbol);
       }
-  }, [instruments, activeSymbol]);
+  }, [instruments, activeSymbol, setActiveSymbol, setNotification]);
 
   useEffect(() => {
-    if (!activeSymbol) return;
+    if (!activeSymbol || (historicalData[activeSymbol] && historicalData[activeSymbol].length > 0)) {
+      return;
+    }
     
     const loadInitialData = async () => {
-      setHistoricalData([]);
       const backendSymbol = toBackendSymbol(activeSymbol);
       const now = Math.floor(Date.now() / 1000);
       const twentyFourHoursAgo = now - (24 * 60 * 60);
@@ -403,72 +398,26 @@ export default function TradePage() {
       const result = await getHistoricalData(backendSymbol, '1', twentyFourHoursAgo, now);
       
       if (result.data) {
-        const formattedData: HistoricalData[] = result.data.map((d: HistoricalData) => ({
+        const formattedData = result.data.map((d: any) => ({
             ...d, 
             time: d.time
         }));
-        setHistoricalData(formattedData);
+        setHistoricalData(activeSymbol, formattedData);
       }
     };
     loadInitialData();
-  }, [activeSymbol]);
-
-//   const handleMouseMove = useCallback((moveEvent: MouseEvent) => {
-//     if (!isDragging || !panelRef.current) return;
-
-//     const viewportHeight = window.innerHeight;
-//     const headerToolbarHeight = HEADER_HEIGHT + TOOLBAR_HEIGHT;
-//     const availableHeight = viewportHeight - headerToolbarHeight;
-    
-//     // Calculate the new height based on mouse position relative to the top of the viewport
-//     const newHeight = availableHeight - moveEvent.clientY;
-    
-//     // Define min and max heights for the trades panel
-//     const maxTradesPanelHeight = availableHeight - MIN_CHART_HEIGHT; 
-
-//     // Clamp the new height within the bounds
-//     const clampedHeight = Math.max(MIN_TRADES_PANEL_HEIGHT, Math.min(newHeight, maxTradesPanelHeight));
-
-//     setTradesPanelHeight(clampedHeight);
-//   }, [isDragging, tradesPanelHeight]); // Include tradesPanelHeight as dependency
-
-//   const handleMouseUp = useCallback(() => {
-//     setIsDragging(false);
-//   }, []);
-
-//   const handleMouseDown = useCallback((e: React.MouseEvent) => {
-//     setIsDragging(true);
-//     // No need to set initial height here, it's handled by tradesPanelHeight state
-//     e.preventDefault(); // Prevent text selection during drag
-//   }, []);
-
-//   useEffect(() => {
-//     if (isDragging) {
-//       window.addEventListener('mousemove', handleMouseMove);
-//       window.addEventListener('mouseup', handleMouseUp);
-//     } else {
-//       window.removeEventListener('mousemove', handleMouseMove);
-//       window.removeEventListener('mouseup', handleMouseUp);
-//     };
-//     return () => {
-//       window.removeEventListener('mousemove', handleMouseMove);
-//       window.removeEventListener('mouseup', handleMouseUp);
-//     };
-//   }, [isDragging, handleMouseMove, handleMouseUp]);
+  }, [activeSymbol, historicalData, setHistoricalData]);
 
   useEffect(() => {
       const fetchTrades = async () => {
           const openRes = await getOpenTrades();
-          let currentOpenTrades: Trade[] = [];
+          let currentOpenTrades: any[] = [];
           
           if (openRes.data) {
-            // debug: log the raw open trades response so we can trace reload issues
-            // eslint-disable-next-line no-console
-            console.log('getOpenTrades response', openRes);
-              currentOpenTrades = openRes.data.filter((t: Trade) => t.mode === tradingMode);
+              currentOpenTrades = openRes.data.filter((t: any) => t.mode === tradingMode);
               setOpenTrades(currentOpenTrades);
 
-              const currentIds = new Set(currentOpenTrades.map((t: Trade) => t._id));
+              const currentIds = new Set(currentOpenTrades.map((t: any) => t._id));
               const prevIds = prevOpenTradesRef.current;
 
               if (prevIds.size > 0) {
@@ -477,7 +426,7 @@ export default function TradePage() {
                   if (settledIds.length > 0) {
                       const historyRes = await getTradeHistory(tradingMode);
                       if (historyRes.data) {
-                          const recentHistory: Trade[] = historyRes.data;
+                          const recentHistory: any[] = historyRes.data;
                           settledIds.forEach(id => {
                               const trade = recentHistory.find((t) => t._id === id);
                               if (trade) {
@@ -507,25 +456,25 @@ export default function TradePage() {
       fetchTrades();
       const interval = setInterval(fetchTrades, 3000);
       return () => clearInterval(interval);
-  }, [tradingMode, activeTab, createTradeState, fetchWallet]);
+  }, [tradingMode, activeTab, createTradeState, fetchWallet, setOpenTrades, setHistoryTrades, setNotification]);
 
   const connectionStatus = Object.keys(ticks).length > 0 ? 'Connected' : 'Connecting';
 
   const processedChartData = useMemo(() => {
+    const dataToProcess = historicalData[activeSymbol] || [];
     if (chartType === 'Heikin Ashi') {
-      return convertToHeikinAshi(historicalData as any);
+      return convertToHeikinAshi(dataToProcess as any);
     }
     if (chartType === 'Area') {
-      return historicalData.map((d) => ({ time: d.time, value: d.close }));
+      return dataToProcess.map((d) => ({ time: d.time, value: d.close }));
     }
-    return historicalData;
-  }, [historicalData, chartType]);
+    return dataToProcess;
+  }, [historicalData, activeSymbol, chartType]);
 
   const chartTrades = useMemo(() => {
     return openTrades.filter(t => ((t.instrumentSymbol || t.symbol) === activeSymbol));
   }, [openTrades, activeSymbol]);
 
-  // Map open trades to simple overlay points for the chart (id, time (s), price, color, text)
   const openTradePoints = useMemo(() => {
     const normalizeTime = (val: any): number | null => {
       if (val == null) return null;
@@ -562,12 +511,13 @@ export default function TradePage() {
 
   return (
     <div className="flex flex-col h-screen bg-[#131722] text-gray-300 overflow-hidden font-sans relative">
+      <Header />
       {notification && (
           <div className={`absolute top-14 left-1/2 transform -translate-x-1/2 z-50 px-6 py-3 rounded shadow-lg font-bold transition-opacity duration-500 ${notification.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
               {notification.message}
           </div>
       )}
-      <Header connectionStatus={connectionStatus} />
+      <TradePageHeader connectionStatus={connectionStatus} />
       <Toolbar
         isSidebarOpen={isSidebarOpen}
         setIsSidebarOpen={setIsSidebarOpen}
@@ -589,19 +539,8 @@ export default function TradePage() {
         )}
         
         <div className="flex-1 flex flex-col relative bg-black min-w-0">
-            {!isSidebarOpen && activeInstrument && (
-                <div className="absolute top-14 left-2 z-20 bg-[#1e222d]/80 backdrop-blur-sm border border-gray-700 p-3 rounded shadow-lg text-white animate-in fade-in slide-in-from-left-4 duration-200">
-                    <h3 className="text-lg font-bold tracking-wide">{activeInstrument.displayName}</h3>
-                    <div className="flex items-center space-x-3 text-xs mt-1">
-                        <span className="text-gray-400">Payout: <span className="text-green-400 font-bold">{activeInstrument.defaultPayoutPercent}%</span></span>
-                        <span className="w-px h-3 bg-gray-600"></span>
-                        <span className="text-gray-400">{activeInstrument.type}</span>
-                    </div>
-                </div>
-            )}
-
-            <div className="flex-1 flex flex-col">
-                <div style={{ height: `calc(100% - ${isTradesPanelOpen ? 300 : MIN_TRADES_PANEL_HEIGHT}px)` }}>
+        <div className="flex-1 flex flex-col">
+                <div style={{ height: `calc(100% - ${isTradesPanelOpen ? 300 : 40}px)` }}>
                     <div className="w-full h-full relative">
                         <div className="absolute top-2 right-4 z-10">
                             <ChartTypeSelector chartType={chartType} setChartType={setChartType} />
@@ -617,16 +556,14 @@ export default function TradePage() {
                 </div>
                 
                 <div 
-                    // ref={panelRef}
-                    style={{ height: isTradesPanelOpen ? `300px` : `${MIN_TRADES_PANEL_HEIGHT}px` }}
+                    style={{ height: isTradesPanelOpen ? `300px` : `40px` }}
                     className="relative bg-[#1e222d] transition-all duration-100 ease-in-out"
                 >
                     <div
                         className="absolute top-0 left-0 w-full h-2 cursor-row-resize"
-                        // onMouseDown={handleMouseDown}
                     />
                     <button
-                        onClick={() => setIsTradesPanelOpen((s) => !s)}
+                        onClick={() => setIsTradesPanelOpen(!isTradesPanelOpen)}
                         className="absolute -top-3 left-1/2 -translate-x-1/2 z-20 w-12 h-6 flex items-center justify-center bg-gray-800 text-white rounded-t-md shadow-md hover:bg-gray-700 transition-colors"
                         aria-label={isTradesPanelOpen ? 'Close trades panel' : 'Open trades panel'}
                     >
