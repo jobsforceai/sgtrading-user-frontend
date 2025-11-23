@@ -2,11 +2,19 @@
 
 import { getProfile, getWallet } from '@/actions/user';
 import { useUserStore } from '@/store/user';
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import Header from '@/components/Header';
+import SgcRedemption from './components/SgcRedemption';
 
 export default function ProfilePage() {
   const { user, wallet, setUser, setWallet } = useUserStore();
+
+  const fetchWalletData = useCallback(async () => {
+    const walletData = await getWallet();
+    if (walletData.data) {
+      setWallet(walletData.data);
+    }
+  }, [setWallet]);
 
   useEffect(() => {
     async function fetchData() {
@@ -14,15 +22,11 @@ export default function ProfilePage() {
       if (profile.data) {
         setUser(profile.data);
       }
-
-      const wallet = await getWallet();
-      if (wallet.data) {
-        setWallet(wallet.data);
-      }
+      fetchWalletData();
     }
 
     fetchData();
-  }, [setUser, setWallet]);
+  }, [setUser, fetchWalletData]);
 
   if (!user || !wallet) {
     return <div>Loading...</div>;
@@ -69,16 +73,17 @@ export default function ProfilePage() {
                   </h2>
                   <div className="mt-4">
                     <p>
-                      <strong>Live Balance:</strong> ${wallet.liveBalanceUsd}
+                      <strong>Live Balance:</strong> ${wallet.liveBalanceUsd.toFixed(2)}
                     </p>
                     <p>
-                      <strong>Demo Balance:</strong> ${wallet.demoBalanceUsd}
+                      <strong>Demo Balance:</strong> ${wallet.demoBalanceUsd.toFixed(2)}
                     </p>
                     <p>
                       <strong>Currency:</strong> {wallet.currency}
                     </p>
                   </div>
                 </div>
+                <SgcRedemption onRedemptionSuccess={fetchWalletData} />
               </div>
             </div>
           </div>
