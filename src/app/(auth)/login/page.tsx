@@ -1,6 +1,6 @@
 'use client';
 
-import { requestOtp, login } from '@/actions/auth';
+import { requestOtp, login, loginWithPassword } from '@/actions/auth';
 import { useAuthStore } from '@/store/auth';
 import { useRouter } from 'next/navigation';
 import { useState, useActionState, useEffect } from 'react';
@@ -9,25 +9,175 @@ import Link from 'next/link';
 import OtpInput from '@/components/ui/OtpInput';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 
+type LoginMode = 'OTP_REQUEST' | 'OTP_VERIFY' | 'PASSWORD';
+
 export default function LoginPage() {
   const router = useRouter();
   const { setUser, setTokens } = useAuthStore();
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
+  const [mode, setMode] = useState<LoginMode>('PASSWORD');
 
-  const [requestOtpState, requestOtpFormAction] = useActionState(requestOtp, undefined);
-  const [loginState, loginFormAction] = useActionState(login, undefined);
+  const [requestOtpState, requestOtpFormAction, isOtpRequestPending] = useActionState(requestOtp, undefined);
+  const [loginState, loginFormAction, isLoginPending] = useActionState(login, undefined);
+  const [passwordLoginState, passwordLoginFormAction, isPasswordLoginPending] = useActionState(loginWithPassword, undefined);
 
-  const otpSent = requestOtpState?.data ? true : false;
-  const hasError = loginState?.error ? true : false;
+  const isPending = isOtpRequestPending || isLoginPending || isPasswordLoginPending;
 
   useEffect(() => {
-    if (loginState?.data) {
-      setUser(loginState.data.user);
-      setTokens(loginState.data.tokens);
+    if (requestOtpState?.data) {
+      setMode('OTP_VERIFY');
+    }
+  }, [requestOtpState]);
+
+  const finalLoginState = mode === 'PASSWORD' ? passwordLoginState : loginState;
+
+  useEffect(() => {
+    if (finalLoginState?.data) {
+      setUser(finalLoginState.data.user);
+      setTokens(finalLoginState.data.tokens);
       router.push('/trade');
     }
-  }, [loginState, setUser, setTokens, router]);
+  }, [finalLoginState, setUser, setTokens, router]);
+
+  const renderFormContent = () => {
+    switch (mode) {
+      case 'PASSWORD':
+        return (
+          <form action={passwordLoginFormAction} className="space-y-6">
+            <input type="hidden" name="email" value={email} />
+            <div>
+              <label
+                htmlFor="email"
+                className="block text-sm font-medium text-gray-300"
+              >
+                Email
+              </label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                required
+                className="w-full px-3 py-2 mt-1 bg-gray-900 border border-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm text-white"
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
+             <div>
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-gray-300"
+              >
+                Password
+              </label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                autoComplete="current-password"
+                required
+                className="w-full px-3 py-2 mt-1 bg-gray-900 border border-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm text-white"
+              />
+            </div>
+            {passwordLoginState?.error && (
+              <ErrorMessage message={passwordLoginState.error} />
+            )}
+            <div>
+              <button
+                type="submit"
+                disabled={isPending}
+                className="w-full px-4 py-2 text-sm font-medium text-white bg-emerald-600 border border-transparent rounded-md shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:opacity-50"
+              >
+                {isPending ? 'Logging in...' : 'Login'}
+              </button>
+            </div>
+            <div className="text-center text-xs text-gray-400">
+              <button
+                type="button"
+                onClick={() => setMode('OTP_REQUEST')}
+                className="font-medium text-emerald-500 hover:underline"
+              >
+                Login with One-Time Passcode
+              </button>
+            </div>
+          </form>
+        );
+      case 'OTP_REQUEST':
+         return (
+          <form action={requestOtpFormAction} className="space-y-6">
+            <div>
+              <label
+                htmlFor="email"
+                className="block text-sm font-medium text-gray-300"
+              >
+                Email
+              </label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                required
+                className="w-full px-3 py-2 mt-1 bg-gray-900 border border-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm text-white"
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
+            {requestOtpState?.error && (
+              <ErrorMessage message={requestOtpState.error} />
+            )}
+            <div>
+              <button
+                type="submit"
+                disabled={isPending}
+                className="w-full px-4 py-2 text-sm font-medium text-white bg-emerald-600 border border-transparent rounded-md shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:opacity-50"
+              >
+                {isPending ? 'Sending...' : 'Request OTP'}
+              </button>
+            </div>
+             <div className="text-center text-xs text-gray-400">
+                <button
+                    type="button"
+                    onClick={() => setMode('PASSWORD')}
+                    className="font-medium text-emerald-500 hover:underline"
+                >
+                    Login with Password
+                </button>
+            </div>
+          </form>
+        );
+      case 'OTP_VERIFY':
+        return (
+            <form action={loginFormAction} className="space-y-6">
+              <input type="hidden" name="email" value={email} />
+              <input type="hidden" name="otp" value={otp} />
+              <div>
+                <label
+                  htmlFor="otp"
+                  className="block text-sm font-medium text-gray-300"
+                >
+                  One-Time Passcode sent to {email}
+                </label>
+                <div className="mt-2">
+                  <OtpInput onChange={setOtp} hasError={!!loginState?.error} />
+                </div>
+              </div>
+              {loginState?.error && (
+                <ErrorMessage message={loginState.error} />
+              )}
+              <div>
+                <button
+                  type="submit"
+                  disabled={isPending}
+                  className="w-full px-4 py-2 text-sm font-medium text-white bg-emerald-600 border border-transparent rounded-md shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:opacity-50"
+                >
+                 {isPending ? 'Verifying...' : 'Login'}
+                </button>
+              </div>
+            </form>
+        );
+    }
+  };
+
 
   return (
     <div className="relative min-h-screen bg-black flex items-center justify-center p-4">
@@ -40,65 +190,7 @@ export default function LoginPage() {
         </div>
         <div className="p-8 space-y-6">
           <h1 className="text-3xl font-bold text-center text-white mb-4">Login</h1>
-          {!otpSent ? (
-            <form action={requestOtpFormAction} className="space-y-6">
-              <div>
-                <label
-                  htmlFor="email"
-                  className="block text-sm font-medium text-gray-300"
-                >
-                  Email
-                </label>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  className="w-full px-3 py-2 mt-1 bg-gray-900 border border-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm text-white"
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-              {requestOtpState?.error && (
-                <ErrorMessage message={requestOtpState.error} />
-              )}
-              <div>
-                <button
-                  type="submit"
-                  className="w-full px-4 py-2 text-sm font-medium text-white bg-emerald-600 border border-transparent rounded-md shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
-                >
-                  Request OTP
-                </button>
-              </div>
-            </form>
-          ) : (
-            <form action={loginFormAction} className="space-y-6">
-              <input type="hidden" name="email" value={email} />
-              <input type="hidden" name="otp" value={otp} />
-              <div>
-                <label
-                  htmlFor="otp"
-                  className="block text-sm font-medium text-gray-300"
-                >
-                  One-Time Passcode
-                </label>
-                <div className="mt-2">
-                  <OtpInput onChange={setOtp} hasError={hasError} />
-                </div>
-              </div>
-              {loginState?.error && (
-                <ErrorMessage message={loginState.error} />
-              )}
-              <div>
-                <button
-                  type="submit"
-                  className="w-full px-4 py-2 text-sm font-medium text-white bg-emerald-600 border border-transparent rounded-md shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
-                >
-                  Login
-                </button>
-              </div>
-            </form>
-          )}
+          {renderFormContent()}
            <div className="text-sm text-center text-gray-400">
               Don&apos;t have an account?{' '}
               <Link href="/register" className="font-medium text-emerald-500 hover:underline">
