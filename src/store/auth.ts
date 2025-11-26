@@ -1,3 +1,4 @@
+import { logoutUser } from '@/actions/auth';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { setCookie, deleteCookie } from 'cookies-next';
@@ -28,7 +29,7 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
       tokens: null,
       setUser: (user) => set({ user }),
@@ -37,10 +38,15 @@ export const useAuthStore = create<AuthState>()(
         setCookie('accessToken', tokens.accessToken);
         setCookie('refreshToken', tokens.refreshToken);
       },
-      logout: () => {
+      logout: async () => {
+        const { tokens } = get();
+        if (tokens?.refreshToken) {
+          await logoutUser(tokens.refreshToken);
+        }
         set({ user: null, tokens: null });
         deleteCookie('accessToken');
         deleteCookie('refreshToken');
+        window.location.href = '/login';
       },
     }),
     {

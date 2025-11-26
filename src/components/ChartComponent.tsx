@@ -65,6 +65,24 @@ export const ChartComponent = ({
     }
     return item;
   };
+  
+  // Parse arbitrary time/expiry-like values into seconds (number)
+  const parseToSeconds = (v: any): number | null => {
+    if (v == null) return null;
+    if (typeof v === 'number' && Number.isFinite(v)) {
+      // If value looks like milliseconds (large), convert to seconds
+      if (v > 1e12) return Math.floor(v / 1000);
+      return Math.floor(v);
+    }
+    const n = Number(v);
+    if (Number.isFinite(n)) {
+      if (n > 1e12) return Math.floor(n / 1000);
+      return Math.floor(n);
+    }
+    const parsed = Date.parse(String(v));
+    if (!Number.isNaN(parsed)) return Math.floor(parsed / 1000);
+    return null;
+  };
 
   // Initialize chart + series
   useEffect(() => {
@@ -173,35 +191,34 @@ export const ChartComponent = ({
     // `price` for the trade price; and `expiresAt` (ISO), `requestedExpirySeconds`
     // (relative seconds), or legacy `expiry` for the duration.
     const raw = (openTradePoints || []).map((p: any) => {
-      // Determine trade time (seconds)
-      const tradeTime = ((): number => {
-        if (typeof p.time === 'number' && Number.isFinite(p.time)) return Math.floor(p.time);
-        if (p.openAt) {
-          const parsed = Date.parse(p.openAt);
-          if (!Number.isNaN(parsed)) return Math.floor(parsed / 1000);
-        }
-        if (p.createdAt) {
-          const parsed = Date.parse(p.createdAt);
-          if (!Number.isNaN(parsed)) return Math.floor(parsed / 1000);
-        }
-        return 0;
-      })();
+      // Normalize trade time in seconds
+      const tradeTime = parseToSeconds(p.time ?? p.openAt ?? p.createdAt) ?? 0;
 
       const price = p.price ?? p.entryPrice ?? null;
 
-      // Raw expiry input could be one of several forms
-      const expiryRaw = p.expiry ?? p.requestedExpirySeconds ?? 0;
-
-      // Compute expiryTime (absolute seconds). Prefer explicit `expiresAt` if provided.
+      // Determine expiry input value and whether it's absolute or relative
+      const expiryInput = p.expiresAt ?? (p.requestedExpirySeconds ?? p.expiry ?? 0);
       let expiryTime = 0;
+
+      // If explicit expiresAt provided (ISO/string/number), parse it
       if (p.expiresAt) {
-        const parsed = Date.parse(p.expiresAt);
-        if (!Number.isNaN(parsed)) expiryTime = Math.floor(parsed / 1000);
-      }
-      // If expiresAt not provided, derive from expiryRaw: if expiryRaw > tradeTime
-      // assume it's already an absolute timestamp; otherwise treat as relative seconds.
-      if (!expiryTime && expiryRaw) {
-        expiryTime = expiryRaw > tradeTime ? Math.floor(expiryRaw) : Math.floor(tradeTime + expiryRaw);
+        const parsed = parseToSeconds(p.expiresAt);
+        if (parsed) expiryTime = parsed;
+      } else {
+        // If the value is numeric-like, detect if it's an absolute timestamp or a relative seconds offset
+        const rawVal = p.requestedExpirySeconds ?? p.expiry ?? 0;
+        const rawNum = Number(rawVal || 0);
+        if (Number.isFinite(rawNum) && rawNum > 0) {
+          // Heuristic: treat very large numbers as timestamps in ms/seconds; small numbers as relative seconds
+          if (rawNum > 1e12) {
+            expiryTime = Math.floor(rawNum / 1000);
+          } else if (rawNum > 1e9) {
+            expiryTime = Math.floor(rawNum);
+          } else {
+            // relative seconds
+            expiryTime = tradeTime + Math.floor(rawNum);
+          }
+        }
       }
 
       return {
@@ -210,7 +227,7 @@ export const ChartComponent = ({
         price,
         color: p.color ?? '#999',
         text: p.text ?? (p.direction ? String(p.direction) : ''),
-        expiry: expiryRaw,
+        expiry: Number(p.requestedExpirySeconds ?? p.expiry ?? 0),
         expiryTime,
       };
     });
@@ -224,7 +241,7 @@ export const ChartComponent = ({
         (seriesRef.current as any).setMarkers([]);
       }
       setOverlayPoints([]);
-      console.log('ChartComponent: normalized openTradePoints (early)', raw);
+      // console.log('ChartComponent: normalized openTradePoints (early)', raw);
       return;
     }
 
@@ -268,6 +285,10 @@ export const ChartComponent = ({
     }
 
     // 3. Set up a continuous RAF loop to update the custom HTML overlay markers
+    // Width control: cap and gentle scaling for very large raw widths
+    const DURATION_MIN_WIDTH = 8; // px
+    const DURATION_MAX_BASE = 160; // px - target cap for most durations
+
     let rafId: number;
     const updateOverlayPositions = () => {
       const timeScale = chart.timeScale();
@@ -304,21 +325,44 @@ export const ChartComponent = ({
         if (x !== null && y !== null) {
           // Only draw a duration horizontal line if an expiryTime is present and valid
           let width = 0;
+          let endLeft: number | null = null;
           if (r.expiryTime && r.expiryTime > r.time) {
+            // Prefer timeToCoordinate when expiry enters the visible range
             let x2: any = timeScale.timeToCoordinate((visibleRangeIsMs ? r.expiryTime * 1000 : r.expiryTime) as any);
-            if (x2 === null) {
-              const mapped2 = mapTimeToPixel(r.expiryTime as any);
-              if (typeof mapped2 === 'number') {
-                x2 = mapped2;
-              } else {
-                // Fallback: if mapping not available, put at container edge depending on expiry
-                x2 = (r.expiryTime * unitMultiplier) > ((vr && (vr.to as number)) || (r.time * unitMultiplier)) ? containerWidth : 0;
-              }
+
+            // If timeToCoordinate returned null, but we have a visible range, compute proportionally
+            if (x2 === null && vr && typeof vr.from !== 'undefined' && typeof vr.to !== 'undefined' && vr.to !== vr.from) {
+              const from = (vr.from as number);
+              const to = (vr.to as number);
+              const tt = r.expiryTime * unitMultiplier;
+              const frac = (tt - from) / (to - from);
+              const mapped = frac * containerWidth;
+              // clamp mapped coordinate into visible pixel range
+              x2 = Math.max(0, Math.min(containerWidth, mapped));
             }
-            const rawWidth = (typeof x2 === 'number' && x2 > x) ? x2 - x : 0;
-            width = Math.max(Math.round(rawWidth), 8);
+
+            // If still null, do not draw a duration (avoid using containerWidth as a blind fallback)
+            if (typeof x2 === 'number') {
+              const rawWidth = x2 > x ? x2 - x : 0;
+              // Apply cap + mild scaling for very large widths so they don't dominate the chart
+              if (rawWidth <= DURATION_MAX_BASE) {
+                width = Math.max(Math.round(rawWidth), DURATION_MIN_WIDTH);
+              } else {
+                // gentle compression: base cap plus a log-scale remainder
+                const excess = rawWidth - DURATION_MAX_BASE;
+                const extra = Math.round(Math.log(excess + 1) * 12); // tuneable
+                width = DURATION_MAX_BASE + extra;
+              }
+              // clamp width
+              width = Math.max(DURATION_MIN_WIDTH, Math.min(width, Math.max(DURATION_MAX_BASE * 2, DURATION_MIN_WIDTH)));
+              // compute endLeft from x + width (so displayed square lines up with the visible bar)
+              endLeft = Math.round(Math.max(0, Math.min(containerWidth, x + width)));
+            } else {
+              width = 0;
+              endLeft = null;
+            }
           }
-          newOverlayPoints.push({ id: r.id, left: x, top: y, color: r.color, text: r.text, width });
+          newOverlayPoints.push({ id: r.id, left: x, top: y, color: r.color, text: r.text, width, endLeft });
         }
       }
       setOverlayPoints(newOverlayPoints);
@@ -373,7 +417,23 @@ export const ChartComponent = ({
                   opacity: 0.95,
                   borderRadius: 2,
                   boxShadow: '0 1px 6px rgba(0,0,0,0.6)',
-                  
+                }}
+              />
+            )}
+            {/* Draw explicit end marker at expiry */}
+            {p.endLeft != null && (
+              <div
+                title={`Expiry: ${p.text}`}
+                style={{
+                  position: 'absolute',
+                  left: `${p.endLeft}px`,
+                  top: `${p.top}px`,
+                  transform: 'translate(-50%, -50%)',
+                  width: 8,
+                  height: 8,
+                  background: '#ffffff',
+                  border: `2px solid ${p.color}`,
+                  boxShadow: '0 0 6px rgba(0,0,0,0.6)',
                 }}
               />
             )}

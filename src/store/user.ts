@@ -16,6 +16,7 @@ interface Wallet {
   userId: string;
   liveBalanceUsd: number;
   demoBalanceUsd: number;
+  bonusBalanceUsd: number;
   currency: string;
   createdAt: string;
   updatedAt: string;
