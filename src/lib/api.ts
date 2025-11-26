@@ -73,12 +73,12 @@ api.interceptors.response.use(
           processQueue(null, res.data.accessToken);
           return api(originalRequest);
         } else {
-          logout();
+          logout(); // <-- LOGOUT ON REFRESH FAILURE
           processQueue(new Error('Token refresh failed'), null);
           return Promise.reject(error);
         }
       } catch (e) {
-        logout();
+        logout(); // <-- LOGOUT ON REFRESH FAILURE
         processQueue(e, null);
         return Promise.reject(e);
       } finally {

@@ -241,7 +241,7 @@ export const ChartComponent = ({
         (seriesRef.current as any).setMarkers([]);
       }
       setOverlayPoints([]);
-      console.log('ChartComponent: normalized openTradePoints (early)', raw);
+      // console.log('ChartComponent: normalized openTradePoints (early)', raw);
       return;
     }
 

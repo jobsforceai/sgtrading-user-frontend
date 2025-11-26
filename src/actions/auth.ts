@@ -3,6 +3,7 @@
 import api from '@/lib/api';
 import { z } from 'zod';
 import { isAxiosError } from 'axios';
+import { cookies } from 'next/headers';
 
 const registerSchema = z.object({
   email: z.string().email(),
@@ -116,43 +117,29 @@ export async function login(prevState: unknown, formData: FormData) {
 
 
 export async function refreshToken(token: string) {
-
   try {
-
     // We don't use the global api instance here to avoid interceptor recursion
-
-    const { data } = await api.post('/auth/refresh', { refreshToken: token }, {
-
-      headers: {
-
-        Authorization: `Bearer ${token}` // Send the refresh token in the header
-
-      }
-
-    });
-
+    const { data } = await api.post('/auth/refresh', { refreshToken: token });
     return {
-
       data,
-
     };
-
   } catch (error) {
-
     const errorMessage =
-
       isAxiosError(error) && error.response?.data?.message
-
         ? (error.response.data.message as string)
-
         : 'An error occurred';
-
     return {
-
       error: errorMessage,
-
     };
-
   }
+}
 
+export async function logoutUser(token: string) {
+  try {
+    await api.post('/auth/logout', { refreshToken: token });
+    return { success: true };
+  } catch (error) {
+    // Fail silently, as the frontend will clear tokens regardless
+    return { success: true };
+  }
 }
