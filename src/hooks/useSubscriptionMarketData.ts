@@ -9,9 +9,7 @@ export type MarketTick = {
   ts: number;
 };
 
-// Default to localhost if env var is not set
-// FORCE 8080 for now as env var seems to point to 5000 which is wrong
-const WS_URL = 'http://localhost:8080';
+const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:8080';
 
 const socket: Socket = io(WS_URL, {
   transports: ['websocket'],
