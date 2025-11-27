@@ -13,7 +13,7 @@ export const useMarketSocket = () => {
   const [ticks, setTicks] = useState<MarketTick[]>([]);
 
   useEffect(() => {
-    const socket: Socket = io('http://localhost:8080', {
+    const socket: Socket = io(process.env.NEXT_PUBLIC_WS_URL!, {
       transports: ['websocket'],
     });
 
