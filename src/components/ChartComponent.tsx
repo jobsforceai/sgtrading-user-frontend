@@ -119,6 +119,7 @@ export const ChartComponent = ({
         break;
     }
     seriesRef.current = series;
+    tradePriceLines.current.clear(); // Clear old price lines on chart change
 
     const resizeObserver = new ResizeObserver(entries => {
       const { width, height } = entries[0].contentRect;
