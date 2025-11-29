@@ -2,21 +2,26 @@
  
  import Link from 'next/link';
  import { ArrowRight } from 'lucide-react';
+import Image from 'next/image';
  
  export function LandingNavbar() {
    return (
      <header className="absolute -translate-x-1/2 left-1/2 z-20 mx-auto flex w-full max-w-7xl items-center justify-between px-6 pt-6 md:px-10">
        {/* Left – Logo */}
-       <div className="w-40">
-         <div className="flex items-center gap-3">
-           <div className="relative flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-500/10 ring-1 ring-emerald-500/40">
-             <div className="h-6 w-6 rounded-xl bg-emerald-400 shadow-btn-glow" />
-           </div>
-           <span className="text-xs font-semibold tracking-[0.3em] text-emerald-200">
-             360Trader
-           </span>
-         </div>
-       </div>
+      <div className="w-24 md:w-40">
+        <div className="flex items-center gap-3">
+          <div className="relative w-24 md:w-40 h-8 md:h-10">
+            <Image
+              src="/360logo.png"
+              alt="SgTrading Logo"
+              fill
+              sizes="(max-width: 768px) 6rem, 10rem"
+              style={{ objectFit: 'contain' }}
+              priority
+            />
+          </div>
+        </div>
+      </div>
  
        {/* Center – pill navbar with glowing green border */}
        <div className="relative hidden items-center justify-center md:flex">
@@ -27,8 +32,8 @@
               }}>
            <nav className="flex items-center gap-6 rounded-full bg-black/40 p-1 text-xs text-slate-100">
              {/* Left circular icon */}
-             <Link href="/" aria-label="Home" className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500 text-slate-950 shadow-btn-glow">
-               <div className="h-4 w-4 rounded-md bg-slate-900/40" />
+             <Link href="/" aria-label="Home" className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-900 text-slate-950 shadow-btn-glow">
+               <Image src="/bull.png" alt="Logo" width={40} height={40} />
              </Link>
  
              {['Bots', 'Markets', 'Trade', 'Token', 'FAQ'].map(

@@ -1,5 +1,6 @@
 import { Linkedin, Send, Facebook, Gamepad2 } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 export function Footer() {
   const year = new Date().getFullYear();
@@ -8,7 +9,7 @@ export function Footer() {
     <footer className="relative mt-24 py-16 w-full overflow-hidden bg-black">
       {/* grid + soft glow */}
       <div className="pointer-events-none absolute inset-0 bg-footer-grid opacity-20" />
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.45),_transparent_70%)]" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.45),transparent_70%)]" />
 
       {/* huge 360Trader word in background */}
       <div className="pointer-events-none absolute inset-x-[-4vw] -bottom-20 z-0 flex justify-center">
@@ -21,8 +22,8 @@ export function Footer() {
       <div className="relative z-10 mx-auto flex max-w-6xl items-center justify-between px-6 pt-7 md:px-10">
         {/* logo */}
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-emerald-500/10 ring-1 ring-emerald-500/50">
-            <div className="h-5 w-5 rounded-xl bg-emerald-400" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-emerald-900 ring-1 ring-emerald-500/50">
+            <Image src="/bull.png" alt="Logo" width={40} height={40} />
           </div>
           <span className="text-xs font-semibold tracking-[0.3em] text-emerald-300">
             360TRADER
