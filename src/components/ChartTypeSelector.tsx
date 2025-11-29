@@ -8,7 +8,7 @@ interface ChartTypeSelectorProps {
 }
 
 export const ChartTypeSelector: React.FC<ChartTypeSelectorProps> = ({ chartType, setChartType }) => {
-  const chartTypes = ['Candlestick', 'Bar', 'Area', 'Heikin Ashi'];
+  const chartTypes = ['Area', 'Heikin Ashi'];
 
   return (
     <div className="flex items-center space-x-1 bg-[#1e222d] p-1 rounded-md">

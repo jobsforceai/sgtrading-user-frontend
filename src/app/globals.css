@@ -55,3 +55,41 @@ body {
 .animate-line-dash {
   animation: line-dash 3s ease-out forwards;
 }
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root, .theme-live {
+    --color-accent: theme('colors.emerald.600');
+    --color-accent-hover: theme('colors.emerald.700');
+    --color-accent-active: theme('colors.emerald.500');
+    --color-accent-text: theme('colors.emerald.300');
+    --ring-accent: theme('colors.emerald.500/50');
+    --bg-accent-subtle: theme('colors.emerald.500/10');
+    --dot-accent: theme('colors.emerald.400');
+    --checkbox-accent: theme('colors.emerald.600');
+  }
+
+  .theme-demo {
+    --color-accent: theme('colors.orange.500');
+    --color-accent-hover: theme('colors.orange.600');
+    --color-accent-active: theme('colors.orange.500');
+    --color-accent-text: theme('colors.orange.300');
+    --ring-accent: theme('colors.orange.500/50');
+    --bg-accent-subtle: theme('colors.orange.500/10');
+    --dot-accent: theme('colors.orange.400');
+    --checkbox-accent: theme('colors.orange.500');
+  }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+  20%, 40%, 60%, 80% { transform: translateX(5px); }
+}
+
+.animate-shake {
+  animation: shake 0.5s ease-in-out;
+}

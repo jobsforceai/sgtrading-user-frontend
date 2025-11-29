@@ -24,10 +24,10 @@ export async function getBots() {
   }
 
   try {
-    const { data } = await api.get('/bots', {
+    const { data } = await api.get(`/bots`, {
       headers: { Authorization: `Bearer ${token.value}` },
     });
-    return { data };
+    return data;
   } catch (error) {
     const errorMessage = isAxiosError(error) && error.response?.data?.message
       ? (error.response.data.message as string)
@@ -36,76 +36,125 @@ export async function getBots() {
   }
 }
 
+type BotData = {
+    [key: string]: string | number | (string | number)[] | undefined;
+};
+
 export async function createBot(prevState: unknown, formData: FormData) {
-  const rawData = Object.fromEntries(formData.entries());
-  const assets = formData.getAll('assets') as string[];
+  const rawData: BotData = {};
+  for (const [key, value] of formData.entries()) {
+      if (!(value instanceof File)) {
+        const existing = rawData[key];
+        if (existing !== undefined) {
+            if (Array.isArray(existing)) {
+                existing.push(value);
+            } else {
+                rawData[key] = [existing as string | number, value];
+            }
+        } else {
+            rawData[key] = value;
+        }
+      }
+  }
   
-  const strategy = rawData.strategy as string;
-  let parameters: any = {};
-
-  if (strategy === 'RSI_STRATEGY') {
-      parameters = { period: Number(rawData.period || 14) };
-  } else if (strategy === 'MACD_STRATEGY') {
-      parameters = {
-          fastPeriod: Number(rawData.fastPeriod || 12),
-          slowPeriod: Number(rawData.slowPeriod || 26),
-          signalPeriod: Number(rawData.signalPeriod || 9),
-      };
-  } else if (strategy === 'SMA_CROSSOVER') {
-      parameters = {
-          fastPeriod: Number(rawData.fastPeriod || 10),
-          slowPeriod: Number(rawData.slowPeriod || 50),
-      };
-  }
-
-  // Construct nested config object manually because Object.fromEntries flattens it
-  const payload = {
-      name: rawData.name,
-      strategy: strategy as any,
-      assets,
-      tradeAmount: rawData.tradeAmount,
-      insuranceEnabled: rawData.insuranceEnabled === 'on', // Checkbox returns 'on'
-      config: {
-          expirySeconds: rawData.expirySeconds,
-          maxConcurrentTrades: rawData.maxConcurrentTrades,
-          stopLossAmount: rawData.stopLossAmount,
-          takeProfitAmount: rawData.takeProfitAmount,
-      },
-      parameters,
-  };
-
-  console.log('Creating Bot Payload:', JSON.stringify(payload, null, 2));
-
-  // Define Schema inline to prevent initialization issues
-  const botConfigSchema = z.object({
-    expirySeconds: z.coerce.number().min(5),
-    maxConcurrentTrades: z.coerce.number().min(1).max(10),
-    stopLossAmount: z.coerce.number().min(0),
-    takeProfitAmount: z.coerce.number().min(0),
-  });
-
-  const createBotSchema = z.object({
-    name: z.string().min(3),
-    strategy: z.enum(['RANDOM_TEST', 'RSI_STRATEGY', 'MACD_STRATEGY', 'SMA_CROSSOVER']),
-    assets: z.array(z.string()).min(1, "Select at least one asset"),
-    tradeAmount: z.coerce.number().min(1),
-    insuranceEnabled: z.boolean().optional(),
-    config: botConfigSchema,
-    parameters: z.record(z.string(), z.any()).optional(),
-  });
-
-  const validatedFields = createBotSchema.safeParse(payload);
-
-  if (!validatedFields.success) {
-    console.error('Validation Error:', validatedFields.error);
-    return { error: 'Invalid fields' };
-  }
+  const clonedFrom = rawData.clonedFrom as string | undefined;
 
   const cookieStore = await cookies();
   const token = cookieStore.get('accessToken');
 
   if (!token) {
     return { error: 'Not authenticated' };
+  }
+
+  let validatedFields;
+
+  if (clonedFrom) {
+    // Logic for cloning a bot, per final documentation
+    const cloneBotSchema = z.object({
+      name: z.string().min(3),
+      clonedFrom: z.string(),
+      config: z.object({
+        tradeAmount: z.coerce.number().min(1),
+        expirySeconds: z.coerce.number().min(5),
+      }),
+    });
+    
+    const payload = {
+        name: rawData.name,
+        clonedFrom: clonedFrom,
+        config: {
+            tradeAmount: rawData.tradeAmount,
+            expirySeconds: rawData.expirySeconds,
+        }
+    };
+    
+    validatedFields = cloneBotSchema.safeParse(payload);
+
+    if (!validatedFields.success) {
+      console.error('Clone Validation Error:', validatedFields.error.flatten().fieldErrors);
+      return { error: 'Invalid fields for cloning. Please check your inputs.' };
+    }
+  } else {
+    // Logic for creating a new personal bot, per final documentation
+    const assets = formData.getAll('assets') as string[];
+    const strategy = rawData.strategy as string;
+    let parameters: Record<string, number> = {};
+
+    if (strategy === 'RSI_STRATEGY') {
+        parameters = { period: Number(rawData.period || 14) };
+    } else if (strategy === 'MACD_STRATEGY') {
+        parameters = {
+            fastPeriod: Number(rawData.fastPeriod || 12),
+            slowPeriod: Number(rawData.slowPeriod || 26),
+            signalPeriod: Number(rawData.signalPeriod || 9),
+        };
+    } else if (strategy === 'SMA_CROSSOVER') {
+        parameters = {
+            fastPeriod: Number(rawData.fastPeriod || 10),
+            slowPeriod: Number(rawData.slowPeriod || 50),
+        };
+    }
+
+    const botConfigSchema = z.object({
+        tradeAmount: z.coerce.number().min(1),
+        expirySeconds: z.coerce.number().min(10),
+        maxConcurrentTrades: z.coerce.number().min(1).max(10).optional(),
+        stopLossAmount: z.coerce.number().min(0).optional(),
+        takeProfitAmount: z.coerce.number().min(0).optional(),
+    });
+
+    const createBotSchema = z.object({
+        name: z.string().min(3),
+        visibility: z.enum(['PUBLIC', 'PRIVATE']),
+        strategy: z.enum(['RANDOM_TEST', 'RSI_STRATEGY', 'MACD_STRATEGY', 'SMA_CROSSOVER']),
+        assets: z.array(z.string()).min(1, "Select at least one asset"),
+        profitSharePercent: z.coerce.number().min(0).max(100).optional(),
+        config: botConfigSchema,
+        parameters: z.record(z.string(), z.any()).optional(),
+    });
+    
+    const payload = {
+        name: rawData.name,
+        visibility: rawData.visibility,
+        strategy: strategy as z.infer<typeof createBotSchema>['strategy'],
+        assets,
+        profitSharePercent: rawData.visibility === 'PUBLIC' ? Number(rawData.profitSharePercent) : undefined,
+        config: {
+            tradeAmount: rawData.tradeAmount,
+            expirySeconds: rawData.expirySeconds,
+            maxConcurrentTrades: rawData.maxConcurrentTrades,
+            stopLossAmount: rawData.stopLossAmount,
+            takeProfitAmount: rawData.takeProfitAmount,
+        },
+        parameters,
+    };
+
+    validatedFields = createBotSchema.safeParse(payload);
+
+    if (!validatedFields.success) {
+      console.error('Validation Error:', validatedFields.error.flatten().fieldErrors);
+      return { error: 'Invalid fields. Please check your inputs.' };
+    }
   }
 
   try {
@@ -121,7 +170,34 @@ export async function createBot(prevState: unknown, formData: FormData) {
   }
 }
 
-export async function updateBot(botId: string, payload: any) {
+export async function getPublicBots() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get('accessToken');
+  try {
+    const { data } = await api.get('/bots/public', {
+      headers: token ? { Authorization: `Bearer ${token.value}` } : {},
+  });
+    console.log('API response from /bots/public:', data);
+    return data;
+  } catch (error) {
+    const errorMessage = isAxiosError(error) && error.response?.data?.message
+      ? (error.response.data.message as string)
+      : 'An error occurred while fetching public bots';
+    return { error: errorMessage };
+  }
+}
+
+type BotUpdatePayload = {
+    status?: 'ACTIVE' | 'PAUSED';
+    config?: {
+        tradeAmount?: number;
+    };
+    insuranceEnabled?: boolean;
+    parameters?: Record<string, any>;
+    assets?: string[];
+};
+
+export async function updateBot(botId: string, payload: BotUpdatePayload) {
     const cookieStore = await cookies();
     const token = cookieStore.get('accessToken');
   
@@ -133,7 +209,7 @@ export async function updateBot(botId: string, payload: any) {
       const { data } = await api.patch(`/bots/${botId}`, payload, {
         headers: { Authorization: `Bearer ${token.value}` },
       });
-      return { data };
+      return data;
     } catch (error) {
       const errorMessage = isAxiosError(error) && error.response?.data?.message
         ? (error.response.data.message as string)
@@ -143,27 +219,45 @@ export async function updateBot(botId: string, payload: any) {
 }
 
 export async function getBotDefinitions() {
+    const cookieStore = await cookies();
+    const token = cookieStore.get('accessToken');
+
+    const fallback = { 
+        strategies: [
+            { id: 'RANDOM_TEST', name: 'Random Tester', description: 'Randomly trades for testing purposes.', isPremium: false },
+            { id: 'RSI_STRATEGY', name: 'RSI Strategy', description: 'Trades on RSI overbought/oversold signals.', isPremium: true },
+            { id: 'MACD_STRATEGY', name: 'MACD Crossover', description: 'Trades on MACD line crossovers.', isPremium: true },
+            { id: 'SMA_CROSSOVER', name: 'SMA Crossover', description: 'Trades on simple moving average crossovers.', isPremium: true }
+        ],
+        parameters: {
+            tradeAmount: "The amount of money (USD) invested in each individual trade.",
+            expirySeconds: "The duration of each trade in seconds.",
+            maxConcurrentTrades: "Maximum number of open trades allowed at one time.",
+            stopLossAmount: "Bot stops if Net Loss reaches this amount.",
+            takeProfitAmount: "Bot stops if Net Profit reaches this amount.",
+            insuranceEnabled: "If enabled, losing trades are fully refunded.",
+            assets: "The financial instruments the bot will monitor and trade.",
+            period: "Sensitivity period. Lower values are more reactive.",
+            fastPeriod: "Short-term moving average lookback period.",
+            slowPeriod: "Long-term moving average lookback period.",
+            signalPeriod: "Smoothing period for the signal line."
+        }
+    };
+
     try {
-        const { data } = await api.get('/bots/definitions');
-        return { data };
+        const { data } = await api.get('/bots/definitions', {
+            headers: token ? { Authorization: `Bearer ${token.value}` } : {},
+        });
+
+        if (data && Array.isArray(data.strategies) && data.strategies.length > 0) {
+            return data;
+        } else {
+            console.warn("API returned invalid bot definitions, using fallback.");
+            return fallback;
+        }
     } catch (error) {
-        // Fallback definitions if endpoint fails (optional, but good for UX)
-        return { 
-            data: {
-                tradeAmount: "The amount of money (USD) invested in each individual trade.",
-                expirySeconds: "The duration of each trade in seconds.",
-                maxConcurrentTrades: "Maximum number of open trades allowed at one time.",
-                stopLossAmount: "Bot stops if Net Loss reaches this amount.",
-                takeProfitAmount: "Bot stops if Net Profit reaches this amount.",
-                insuranceEnabled: "If enabled, losing trades are fully refunded.",
-                strategy: "The algorithm used to determine trade entry points.",
-                assets: "The financial instruments the bot will monitor and trade.",
-                period: "Sensitivity period. Lower values make it more reactive.",
-                fastPeriod: "Short-term moving average lookback period.",
-                slowPeriod: "Long-term moving average lookback period.",
-                signalPeriod: "Smoothing period for the signal line."
-            }
-        };
+        console.error("Failed to fetch bot definitions, returning fallback. Error:", error);
+        return fallback;
     }
 }
 

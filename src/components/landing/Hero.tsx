@@ -1,4 +1,5 @@
 import { ArrowRight } from 'lucide-react';
+import Link from 'next/link';
 import CandlestickGraph from './CandlestickGraph';
 
 
@@ -43,10 +44,12 @@ export function Hero() {
 
         {/* CTA buttons */}
         <div className="flex items-center justify-center gap-4">
-          <button className="inline-flex items-center justify-center rounded-full bg-emerald-500 px-7 py-3 text-xs font-semibold text-slate-950 shadow-btn-glow transition hover:bg-emerald-400">
-            Try Free Trial
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </button>
+          <Link href="/register">
+            <button className="inline-flex items-center justify-center rounded-full bg-emerald-500 px-7 py-3 text-xs font-semibold text-slate-950 shadow-btn-glow transition hover:bg-emerald-400">
+              Try Free Trial
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </button>
+          </Link>
 
           {/* <button className="text-xs font-medium text-slate-300 hover:text-white">
             Learn more

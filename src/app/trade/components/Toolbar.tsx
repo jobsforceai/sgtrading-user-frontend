@@ -1,134 +1,60 @@
-import React from 'react';
-import { Bot, ChevronDown } from 'lucide-react';
-
-type Instrument = {
-    _id: string;
-    symbol: string;
-    displayName: string;
-    type: string;
-};
+import { BarChart, Menu } from 'lucide-react';
 
 export default function Toolbar({
   isSidebarOpen,
   setIsSidebarOpen,
-  instruments,
-  activeSymbol,
   activeInstrument,
-  onSelectSymbol,
   isTradeOpen,
   setIsTradeOpen,
-  toggleTrade,
-  toggleSidebar,
 }: {
   isSidebarOpen: boolean;
   setIsSidebarOpen: (isOpen: boolean) => void;
-  instruments: Instrument[];
+  instruments: any[];
   activeSymbol: string;
-  activeInstrument: Instrument | undefined;
+  activeInstrument: any;
   onSelectSymbol: (symbol: string) => void;
   isTradeOpen: boolean;
   setIsTradeOpen: (isOpen: boolean) => void;
-  toggleTrade?: () => void;
-  toggleSidebar?: () => void;
 }) {
-  const [open, setOpen] = React.useState(false);
-  const [search, setSearch] = React.useState('');
-
-  const categories = [
-    { id: 'CRYPTO', label: 'Cryptocurrency' },
-    { id: 'FOREX', label: 'Forex' },
-    { id: 'STOCK', label: 'Stocks' },
-    { id: 'COMMODITY', label: 'Commodities' },
-  ];
-
   return (
-    <div className="bg-[#2a2e39] border-b border-gray-700 h-9 flex items-center justify-between px-2 overflow-x-auto scrollbar-hide select-none">
-      <div className="flex items-center">
-        {/* Selected asset + dropdown */}
-        <div className="relative">
-          <button
-            onClick={() => {
-                  // debug: log click from toolbar
-                  // eslint-disable-next-line no-console
-                  console.log('Toolbar: asset button clicked, current open:', open);
-                  if (toggleSidebar) toggleSidebar();
-                  else setIsSidebarOpen(!isSidebarOpen);
-                  setOpen((s) => !s);
-                }}
-            aria-haspopup="true"
-            aria-expanded={open}
-            className="flex items-center gap-3 px-3 py-2 rounded-md bg-[#0f1113] border border-gray-700 text-sm text-gray-200"
-          >
-            <span className="font-medium text-sm truncate max-w-[220px]">
-              {activeInstrument?.displayName || activeSymbol || 'Select asset'}
-            </span>
-            <div className="ml-auto">
-              <ChevronDown className={`w-4 h-4 text-gray-300 ${open ? 'transform rotate-180' : ''}`} />
-            </div>
-          </button>
-
-          {open && (
-            <div className="absolute left-2 mt-2 w-80 max-h-64 overflow-auto rounded bg-[#1e222d] border border-gray-700 shadow-lg z-50">
-              <div className="p-2">
-                <div className="px-2 pb-2">
-                  <input
-                    type="search"
-                    placeholder="Search assets..."
-                    className="w-full px-3 py-2 bg-[#16181b] border border-gray-700 rounded text-sm text-gray-200"
-                    onChange={(e) => setSearch(e.target.value)}
-                    value={search}
-                  />
-                </div>
-                {categories.map((cat) => {
-                  const searchLower = search.trim().toLowerCase();
-                  const catSymbols = instruments.filter((s) => s.type === cat.id);
-                  const filtered = searchLower
-                    ? catSymbols.filter(
-                        (s) =>
-                          s.displayName?.toLowerCase().includes(searchLower) ||
-                          s.symbol?.toLowerCase().includes(searchLower),
-                      )
-                    : catSymbols;
-                  if (filtered.length === 0) return null;
-                  return (
-                    <div key={cat.id} className="mb-2">
-                      <div className="px-2 py-1 text-xs font-bold text-gray-400">{cat.label}</div>
-                      <div>
-                        {filtered.map((s) => (
-                          <button
-                            key={s.symbol}
-                            onClick={() => {
-                              onSelectSymbol(s.symbol);
-                              setOpen(false);
-                            }}
-                            className={`w-full text-left px-3 py-1 text-sm rounded hover:bg-[#2a2e39] ${activeSymbol === s.symbol ? 'bg-[#2a2e39] text-white' : 'text-gray-300'}`}
-                          >
-                            {s.displayName}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+    <div className="h-10 bg-[#1e222d] border-b border-gray-700 flex items-center justify-between px-2 text-sm text-gray-400">
+      <div className="flex items-center space-x-2">
+        <button
+          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          className="p-1 hover:bg-gray-700 rounded"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+        <div
+            className="flex items-center space-x-2 text-xs cursor-pointer p-1 hover:bg-gray-700 rounded"
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+        >
+            <span className="font-bold text-white">{activeInstrument?.displayName}</span>
+            <span className="text-gray-600 hidden sm:inline">|</span>
+            <span className="hidden sm:inline">{activeInstrument?.type}</span>
+            <span className="text-gray-600 hidden sm:inline">|</span>
+            <span className="hidden sm:inline">Payout: {activeInstrument?.defaultPayoutPercent}%</span>
+            {activeInstrument?.marketStatus && (
+              <>
+                <span className="text-gray-600 hidden sm:inline">|</span>
+                <span className={`font-bold hidden sm:inline ${activeInstrument.isMarketOpen ? 'text-green-400' : 'text-red-400'}`}>
+                  {activeInstrument.marketStatus}
+                </span>
+              </>
+            )}
         </div>
       </div>
-
-      <div className="flex items-center">
-        {/* Trade toggle button (aligned right) */}
+      <div className="flex items-center space-x-2">
         <button
-          onClick={() => {
-            if (toggleTrade) toggleTrade();
-            else setIsTradeOpen(!isTradeOpen);
-          }}
-          aria-label="Toggle trade panel"
-          aria-pressed={!!isTradeOpen}
-          className="inline-flex items-center gap-2 px-2 py-1 rounded-md bg-[#0f1113] border border-gray-700 text-sm text-gray-200 hover:bg-[#16181b]"
+          onClick={() => setIsTradeOpen(!isTradeOpen)}
+          className={`flex items-center space-x-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+            isTradeOpen
+              ? 'bg-gray-700 text-white'
+              : 'bg-gray-800 hover:bg-gray-700'
+          }`}
         >
-          <Bot className="w-4 h-4 text-emerald-400" />
-          <span className="hidden sm:inline text-xs">Trade</span>
+          <BarChart className="w-4 h-4" />
+          <span>Trade</span>
         </button>
       </div>
     </div>

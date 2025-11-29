@@ -16,6 +16,7 @@ const DynamicChart = dynamic(() => import('./ChartComponent').then(mod => mod.Ch
   decimals?: number;
   openTrades?: any[];
   openTradePoints?: any[];
+  isMarketOpen?: boolean;
 }>;
 
 export default DynamicChart;

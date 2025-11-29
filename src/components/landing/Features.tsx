@@ -1,4 +1,5 @@
 import { Settings2, Network, Wallet2, Sparkles } from 'lucide-react';
+import Link from 'next/link';
 
 const features = [
   {
@@ -48,7 +49,7 @@ export function FeaturesSection() {
         </h2>
 
         <p className="max-w-2xl text-xs text-slate-400 sm:text-sm">
-          SgxTrading is an all-in-one crypto trading platform with a range of pro
+          360Trader is an all-in-one crypto trading platform with a range of pro
           trading tools designed for traders of every skill level.
         </p>
       </div>
@@ -73,10 +74,12 @@ export function FeaturesSection() {
                 </p>
               </div>
 
-              <button className="mt-6 inline-flex items-center text-xs font-medium text-emerald-400 hover:text-emerald-300">
-                {cta}
-                <span className="ml-1 text-[13px]">→</span>
-              </button>
+              <Link href="/register">
+                <button className="mt-6 inline-flex items-center text-xs font-medium text-emerald-400 hover:text-emerald-300">
+                  {cta}
+                  <span className="ml-1 text-[13px]">→</span>
+                </button>
+              </Link>
             </div>
           ))}
         </div>
@@ -84,10 +87,12 @@ export function FeaturesSection() {
 
       {/* bottom CTA button */}
       <div className="relative z-10 mt-10 flex justify-center">
-        <button className="inline-flex items-center justify-center rounded-full bg-emerald-500 px-8 py-3 text-xs font-semibold text-slate-950 shadow-[0_0_40px_rgba(16,185,129,0.8)] transition hover:bg-emerald-400">
-          Get Started
-          <span className="ml-2 text-[13px]">→</span>
-        </button>
+        <Link href="/register">
+          <button className="inline-flex items-center justify-center rounded-full bg-emerald-500 px-8 py-3 text-xs font-semibold text-slate-950 shadow-[0_0_40px_rgba(16,185,129,0.8)] transition hover:bg-emerald-400">
+            Get Started
+            <span className="ml-2 text-[13px]">→</span>
+          </button>
+        </Link>
       </div>
     </section>
   );
