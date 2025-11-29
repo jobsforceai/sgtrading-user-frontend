@@ -33,9 +33,7 @@ export async function register(prevState: unknown, formData: FormData) {
   try {
     const { data } = await api.post("/auth/register", validatedFields.data);
     console.log("Registration successful:", data);
-    return {
-      data,
-    };
+    return data;
   } catch (error) {
     const errorMessage =
       isAxiosError(error) && error.response?.data?.message
@@ -60,9 +58,7 @@ export async function requestOtp(prevState: unknown, formData: FormData) {
 
   try {
     const { data } = await api.post("/auth/otp/request", validatedFields.data);
-    return {
-      data,
-    };
+    return data;
   } catch (error) {
     const errorMessage =
       isAxiosError(error) && error.response?.data?.message
@@ -88,9 +84,7 @@ export async function login(prevState: unknown, formData: FormData) {
   try {
     const { data } = await api.post("/auth/login", validatedFields.data);
 
-    return {
-      data,
-    };
+    return data;
   } catch (error) {
     const errorMessage =
       isAxiosError(error) && error.response?.data?.message
@@ -128,10 +122,8 @@ export async function loginWithPassword(
       "/auth/login/password",
       validatedFields.data
     );
-
-    return {
-      data,
-    };
+    console.log("Backend login response:", data);
+    return data;
   } catch (error) {
     const errorMessage =
       isAxiosError(error) && error.response?.data?.message
@@ -149,9 +141,7 @@ export async function refreshToken(token: string) {
     // We don't use the global api instance here to avoid interceptor recursion
 
     const { data } = await api.post("/auth/refresh", { refreshToken: token });
-    return {
-      data,
-    };
+    return data;
   } catch (error) {
     const errorMessage =
       isAxiosError(error) && error.response?.data?.message

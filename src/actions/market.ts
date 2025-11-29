@@ -16,9 +16,7 @@ export async function getInstruments() {
     const { data } = await api.get('/markets/instruments', {
       headers: { Authorization: `Bearer ${token.value}` },
     });
-    return {
-      data,
-    };
+    return data;
   } catch (error) {
     const errorMessage = isAxiosError(error) && error.response?.data?.message
       ? (error.response.data.message as string)

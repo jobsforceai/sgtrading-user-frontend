@@ -34,7 +34,7 @@ interface UserState {
 export const useUserStore = create<UserState>((set) => ({
   user: null,
   wallet: null,
-  tradingMode: 'DEMO',
+  tradingMode: 'LIVE',
   setUser: (user) => set({ user }),
   setWallet: (wallet) => set({ wallet }),
   setTradingMode: (mode) => set({ tradingMode: mode }),

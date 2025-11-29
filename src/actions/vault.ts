@@ -15,7 +15,7 @@ export async function getVaults() {
     const { data } = await api.get('/vaults', {
       headers: token ? { Authorization: `Bearer ${token.value}` } : {},
     });
-    return { data };
+    return data;
   } catch (error) {
     const errorMessage = isAxiosError(error) && error.response?.data?.message
       ? (error.response.data.message as string)
@@ -33,7 +33,7 @@ export async function getVault(vaultId: string) {
     const { data } = await api.get(`/vaults/${vaultId}`, {
       headers: token ? { Authorization: `Bearer ${token.value}` } : {},
     });
-    return { data };
+    return data;
   } catch (error) {
     const errorMessage = isAxiosError(error) && error.response?.data?.message
       ? (error.response.data.message as string)
@@ -66,7 +66,7 @@ export async function depositToVault(vaultId: string, prevState: unknown, formDa
     const { data } = await api.post(`/vaults/${vaultId}/deposit`, validatedFields.data, {
       headers: { Authorization: `Bearer ${token.value}` },
     });
-    return { data };
+    return data;
   } catch (error) {
     const errorMessage = isAxiosError(error) && error.response?.data?.message
       ? (error.response.data.message as string)
@@ -88,7 +88,7 @@ export async function activateVault(vaultId: string) {
     const { data } = await api.post(`/vaults/${vaultId}/activate`, {}, {
       headers: { Authorization: `Bearer ${token.value}` },
     });
-    return { data };
+    return data;
   } catch (error) {
     const errorMessage = isAxiosError(error) && error.response?.data?.message
       ? (error.response.data.message as string)
@@ -127,7 +127,7 @@ export async function createVault(prevState: unknown, formData: FormData) {
         const { data } = await api.post('/vaults', validatedFields.data, {
             headers: { Authorization: `Bearer ${token.value}` },
         });
-        return { data };
+        return data;
     } catch (error) {
             const errorMessage = isAxiosError(error) && error.response?.data?.message
               ? (error.response.data.message as string)
@@ -149,7 +149,7 @@ export async function createVault(prevState: unknown, formData: FormData) {
             const { data } = await api.post(`/vaults/${vaultId}/withdraw`, {}, {
               headers: { Authorization: `Bearer ${token.value}` },
             });
-            return { data };
+            return data;
           } catch (error) {
             const errorMessage = isAxiosError(error) && error.response?.data?.message
               ? (error.response.data.message as string)
@@ -170,7 +170,7 @@ export async function createVault(prevState: unknown, formData: FormData) {
     const { data } = await api.get('/vaults/me/participations', {
       headers: { Authorization: `Bearer ${token.value}` },
     });
-    return { data };
+    return data;
   } catch (error) {
     const errorMessage = isAxiosError(error) && error.response?.data?.message
       ? (error.response.data.message as string)

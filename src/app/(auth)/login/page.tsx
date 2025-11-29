@@ -25,17 +25,18 @@ export default function LoginPage() {
   const isPending = isOtpRequestPending || isLoginPending || isPasswordLoginPending;
 
   useEffect(() => {
-    if (requestOtpState?.data) {
+    if (requestOtpState?.data && mode !== 'OTP_VERIFY') {
       setMode('OTP_VERIFY');
     }
-  }, [requestOtpState]);
+  }, [requestOtpState, mode]);
 
   const finalLoginState = mode === 'PASSWORD' ? passwordLoginState : loginState;
 
   useEffect(() => {
-    if (finalLoginState?.data) {
-      setUser(finalLoginState.data.user);
-      setTokens(finalLoginState.data.tokens);
+    console.log('Login state changed:', finalLoginState);
+    if (finalLoginState && !finalLoginState.error) {
+      setUser(finalLoginState.user);
+      setTokens(finalLoginState.tokens);
       router.push('/trade');
     }
   }, [finalLoginState, setUser, setTokens, router]);

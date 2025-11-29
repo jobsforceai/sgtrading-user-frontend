@@ -15,23 +15,23 @@ export default function ProfileSidebar({ isOpen, onClose }: { isOpen: boolean; o
 
   const fetchWalletData = useCallback(async () => {
     const walletData = await getWallet();
-    if (walletData.data) {
-      setWallet(walletData.data);
+    if (walletData && !walletData.error) {
+      setWallet(walletData);
     }
   }, [setWallet]);
 
   const fetchVaultParticipations = useCallback(async () => {
     const participationsData = await getMyVaultParticipations();
-    if (participationsData.data) {
-      setParticipations(participationsData.data);
+    if (participationsData && !participationsData.error) {
+      setParticipations(participationsData);
     }
   }, []);
 
   useEffect(() => {
     async function fetchData() {
       const profile = await getProfile();
-      if (profile.data) {
-        setUser(profile.data);
+      if (profile && !profile.error) {
+        setUser(profile);
       }
       fetchWalletData();
       fetchVaultParticipations();

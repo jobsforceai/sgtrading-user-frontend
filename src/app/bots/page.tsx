@@ -19,6 +19,14 @@ import { getInstruments } from '@/actions/market';
 import { getWallet } from '@/actions/user';
 import { getMyVaultParticipations } from '@/actions/vault';
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/AlertDialog';
+import {
   Play,
   Pause,
   Settings,
@@ -32,8 +40,40 @@ import {
   Copy,
   Pencil,
 } from 'lucide-react';
+import { useAuthStore } from '@/store/auth';
 import { useUserStore } from '@/store/user';
 import Header from '@/components/Header';
+
+interface Bot {
+  _id: string;
+  name: string;
+  strategy: string;
+  assets: string[];
+  parameters: Record<string, string | number | boolean>;
+  status: 'ACTIVE' | 'PAUSED';
+  mode: 'LIVE' | 'TEST';
+  visibility: 'PUBLIC' | 'PRIVATE';
+  insuranceStatus: string;
+  stats: {
+    totalTrades: number;
+    wins: number;
+    losses: number;
+    netPnL: number;
+    activeTrades: number;
+  };
+  config?: {
+    tradeAmount?: number;
+    maxConcurrentTrades?: number;
+    stopLossAmount?: number;
+  };
+  tradeAmount?: number; // fallback
+  userId?: {
+    _id?: string;
+    fullName?: string;
+  };
+  profitSharePercent?: number;
+  clonedFrom?: string;
+}
 
 interface Strategy {
   id: string;
@@ -42,218 +82,199 @@ interface Strategy {
   isPremium: boolean;
 }
 
-const strategies: Strategy[] = [
-  {
-    id: 'RSI_STRATEGY',
-    name: 'Relative Strength Index (RSI)',
-    description: 'Trades reversals on overbought/oversold signals.',
-    isPremium: false,
-  },
-  {
-    id: 'MACD_STRATEGY',
-    name: 'MACD Crossover',
-    description: 'Trend-following strategy based on MACD line crossovers.',
-    isPremium: true,
-  },
-  {
-    id: 'SMA_CROSSOVER',
-    name: 'SMA Crossover',
-    description:
-      'Trades on Golden/Death cross signals from moving averages.',
-    isPremium: true,
-  },
-  {
-    id: 'RANDOM_TEST',
-    name: 'Random Tester',
-    description: 'Randomly places trades for testing purposes.',
-    isPremium: false,
-  },
-];
-
-const getFeeTier = (strategyId: string) => {
-    const strategy = strategies.find(s => s.id === strategyId);
-    return strategy?.isPremium ? { name: 'Premium', fee: 25 } : { name: 'Free', fee: 5 };
+interface Instrument {
+  symbol: string;
+  displayName: string;
 }
 
-type Bot = any; 
+const Tooltip = ({ text }: { text?: string }) => {
+  if (!text) return null;
+  return (
+    <span className="relative group ml-1.5">
+      <Info className="w-4 h-4 text-gray-500" />
+      <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-2 bg-gray-800 text-white text-xs rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-10 border border-gray-600">
+        {text}
+      </span>
+    </span>
+  );
+};
+
+const getFeeTier = (strategyId: string) => {
+    // In a real app, this would come from a config or API
+    const premiumStrategies = ['RSI_STRATEGY', 'MACD_STRATEGY', 'SMA_CROSSOVER'];
+    if (premiumStrategies.includes(strategyId)) {
+        return { name: 'Premium', fee: 25 };
+    }
+    return { name: 'Free', fee: 5 };
+}
+
 
 export default function BotsPage() {
   const [myBots, setMyBots] = useState<Bot[]>([]);
   const [publicBots, setPublicBots] = useState<Bot[]>([]);
-  const [instruments, setInstruments] = useState<any[]>([]);
-  const [parameterDefinitions, setParameterDefinitions] = useState<
-    Record<string, string>
-  >({});
+  const [strategies, setStrategies] = useState<Strategy[]>([]);
+  const [instruments, setInstruments] = useState<Instrument[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isCloneModalOpen, setIsCloneModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [botToClone, setBotToClone] = useState<Bot | null>(null);
+  const [isCloneModalOpen, setIsCloneModalOpen] = useState(false);
   const [botToEdit, setBotToEdit] = useState<Bot | null>(null);
-  const [lockedBotIds, setLockedBotIds] = useState<Set<string>>(new Set());
-  const [selectedStrategy, setSelectedStrategy] = useState<string>(
-    strategies[0].id,
-  );
-  const { setWallet } = useUserStore();
-  const formRef = React.useRef<HTMLFormElement>(null);
-  const [activeTab, setActiveTab] = useState<'MY_BOTS' | 'COMMUNITY'>(
-    'MY_BOTS',
-  );
-  const [visibility, setVisibility] = useState('PRIVATE');
-  const [isPending, startTransition] = useTransition();
+  const [botToClone, setBotToClone] = useState<Bot | null>(null);
+  const [botToArchive, setBotToArchive] = useState<Bot | null>(null);
+  const [isArchiveModalOpen, setIsArchiveModalOpen] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
-
-  const selectedStrategyInfo = useMemo(
-    () => strategies.find((s) => s.id === selectedStrategy),
-    [selectedStrategy],
-  );
+  const [archiveSuccessMessage, setArchiveSuccessMessage] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+  const [selectedStrategy, setSelectedStrategy] = useState<string>('');
+  const [visibility, setVisibility] = useState('PRIVATE');
+  const [parameterDefinitions, setParameterDefinitions] = useState<Record<string, string>>({});
+  const [activeTab, setActiveTab] = useState<'MY_BOTS' | 'COMMUNITY'>('MY_BOTS');
+  const [lockedBotIds, setLockedBotIds] = useState<Set<string>>(new Set());
+  const formRef = React.useRef<HTMLFormElement>(null);
+  
+  const { user } = useAuthStore();
+  const { setWallet } = useUserStore();
 
   const fetchMyBots = useCallback(async () => {
-    try {
-      const res = await getBots();
-      if (res?.data) {
-        setMyBots(res.data);
-      }
-    } catch (err) {
-      console.error('Error fetching bots', err);
+    const res = await getBots();
+    if (res && !res.error && Array.isArray(res)) {
+      setMyBots(res as Bot[]);
+    } else {
+      setMyBots([]);
     }
   }, []);
 
   const fetchPublicBots = useCallback(async () => {
-    try {
-      const res = await getPublicBots();
-      if (res?.data) {
-        setPublicBots(res.data);
-      }
-    } catch (err) {
-      console.error('Error fetching public bots', err);
+    const res = await getPublicBots();
+    if (res && !res.error && Array.isArray(res)) {
+      // Temporarily show all public bots, including the user's own.
+      setPublicBots(res as Bot[]);
+      // The original logic filters out the user's own bots:
+      // setPublicBots((res as Bot[]).filter(b => b.userId?._id !== user?._id));
+    } else {
+      setPublicBots([]);
     }
-  }, []);
-
-  const fetchInstruments = useCallback(async () => {
-    try {
-      const res = await getInstruments();
-      if (res?.data) {
-        setInstruments(res.data);
-      }
-    } catch (err) {
-      console.error('Error fetching instruments', err);
-    }
-  }, []);
-
-  const fetchDefinitions = useCallback(async () => {
-    try {
-      const res = await getBotDefinitions();
-      if (res?.data) {
-        setParameterDefinitions(res.data.parameters || res.data);
-      }
-    } catch (err) {
-      console.error('Error fetching bot definitions', err);
-    }
-  }, []);
-
-  const fetchWallet = useCallback(async () => {
-    try {
-      const res = await getWallet();
-      if (res?.data) {
-        setWallet(res.data);
-      }
-    } catch (err) {
-      console.error('Error fetching wallet', err);
-    }
-  }, [setWallet]);
-
-  const fetchLockedBots = useCallback(async () => {
-    const res = await getMyVaultParticipations();
-    if (res.data) {
-        const lockedIdsArray: string[] = res.data.map((p: any) => String(p.vault.botId));
-        const lockedIds = new Set(lockedIdsArray);
-        setLockedBotIds(lockedIds);
-    }
-  }, []);
+  }, [user]);
+  
+  const fetchInitialData = () => {
+    if (!user) return; // Don't fetch if user is not loaded yet
+    startTransition(async () => {
+      await Promise.all([
+        fetchMyBots(),
+        fetchPublicBots(),
+        getWallet().then(res => {
+          if (res && !res.error) setWallet(res);
+        }),
+        getBotDefinitions().then((res) => {
+          if (res) {
+            setStrategies(res.strategies || []);
+            setParameterDefinitions(res.parameterDefinitions || {});
+            if (res.strategies && res.strategies.length > 0) {
+              setSelectedStrategy(res.strategies[0].id);
+            }
+          }
+        }),
+        getInstruments().then((res) => {
+          if (res && !res.error) setInstruments(res);
+        }),
+        getMyVaultParticipations().then(res => {
+            if(res && Array.isArray(res)) {
+                const lockedIds = new Set(res.map(p => p.botId));
+                setLockedBotIds(lockedIds);
+            }
+        })
+      ]);
+    });
+  };
 
   useEffect(() => {
-    fetchInstruments();
-    fetchDefinitions();
-    fetchWallet();
-    fetchLockedBots();
-  }, [fetchInstruments, fetchDefinitions, fetchWallet, fetchLockedBots]);
+    fetchInitialData();
+    // We only want to run this on initial load when user is available.
+    // Adding fetchInitialData to dependency array would cause infinite loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
-  useEffect(() => {
-    if (activeTab === 'MY_BOTS') {
-      fetchMyBots();
-      const interval = setInterval(fetchMyBots, 5000);
-      return () => clearInterval(interval);
-    } else if (activeTab === 'COMMUNITY') {
-      fetchPublicBots();
-    }
-  }, [activeTab, fetchMyBots, fetchPublicBots]);
-
-  const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleFormSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!formRef.current) return;
-
     const formData = new FormData(formRef.current);
     setCreateError(null);
 
     startTransition(async () => {
-      try {
-        const res = await createBot(null, formData);
-        if (res?.error) {
-          setCreateError(res.error as string);
-        } else {
-          setIsModalOpen(false);
-          formRef.current?.reset();
-          setSelectedStrategy(strategies[0].id);
-          await fetchMyBots();
+      const res = await createBot(null, formData);
+      if (res?.error) {
+        setCreateError(res.error as string);
+      } else if (res.data) {
+        // Optimistically update the UI with the new bot, accessing the nested data property
+        const newBot = (res.data as any);
+        if (newBot) {
+          setMyBots(prevBots => [newBot, ...prevBots]);
         }
-      } catch (err) {
-        console.error('Error creating bot', err);
-        setCreateError('Something went wrong while creating the bot.');
+        setIsModalOpen(false);
+      } else {
+        // Fallback to refetching if the response is not as expected
+        setIsModalOpen(false);
+        fetchMyBots();
       }
     });
   };
 
-  const toggleBotStatus = async (bot: any) => {
-    const newStatus = bot.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE';
-    try {
-      await updateBot(bot._id, { status: newStatus });
-      fetchMyBots();
-    } catch (err) {
-      console.error('Error updating bot status', err);
-    }
+  const handleArchiveBot = (bot: Bot) => {
+    setBotToArchive(bot);
+    setIsArchiveModalOpen(true);
   };
 
-  const handleArchiveBot = async (botId: string) => {
-    if (!window.confirm('Are you sure you want to archive this bot?')) return;
-    try {
-      await archiveBot(botId);
-      fetchMyBots();
-    } catch (err) {
-      console.error('Error archiving bot', err);
+  const confirmArchiveBot = async () => {
+    if (botToArchive) {
+      startTransition(async () => {
+        const result = await archiveBot(botToArchive._id);
+        if (result.success) {
+          setArchiveSuccessMessage(`Bot "${botToArchive.name}" archived successfully.`);
+          setTimeout(() => setArchiveSuccessMessage(null), 3000);
+        }
+        fetchMyBots();
+        setIsArchiveModalOpen(false);
+        setBotToArchive(null);
+      });
     }
   };
+  
+  const handleEditClick = (bot: Bot) => {
+      setBotToEdit(bot);
+      setIsEditModalOpen(true);
+  }
 
   const handleCloneClick = (bot: Bot) => {
     setBotToClone(bot);
     setIsCloneModalOpen(true);
+  }
+
+  const toggleBotStatus = async (bot: Bot) => {
+      const newStatus = bot.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE';
+      
+      // Optimistic UI update
+      setMyBots(prevBots => 
+          prevBots.map(b => 
+              b._id === bot._id ? { ...b, status: newStatus } : b
+          )
+      );
+
+      startTransition(async () => {
+          const result = await updateBot(bot._id, { status: newStatus });
+          if (result.error) {
+              console.error("Failed to update bot status:", result.error);
+              // Revert UI on failure
+              setMyBots(prevBots => 
+                  prevBots.map(b => 
+                      b._id === bot._id ? { ...b, status: bot.status } : b
+                  )
+              );
+          }
+      });
   };
 
-  const handleEditClick = (bot: Bot) => {
-    setBotToEdit(bot);
-    setIsEditModalOpen(true);
-  };
-
-  const Tooltip: React.FC<{ text?: string }> = ({ text }) => {
-    if (!text) return null;
-    return (
-      <div className="group relative inline-block ml-1.5">
-        <Info className="w-3.5 h-3.5 text-gray-500 cursor-help" />
-        <div className="invisible group-hover:visible absolute z-10 w-48 p-2 mt-1 text-xs text-white bg-gray-900 border border-gray-700 rounded shadow-lg -translate-x-1/2 left-1/2">
-          {text}
-        </div>
-      </div>
-    );
-  };
+  const selectedStrategyInfo = useMemo(() => {
+    return strategies.find((s) => s.id === selectedStrategy);
+  }, [selectedStrategy, strategies]);
 
   return (
     <>
@@ -261,7 +282,7 @@ export default function BotsPage() {
       <div className="min-h-screen bg-black text-gray-300 p-6">
         <div className="max-w-6xl mx-auto">
           {/* Header */}
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
             <h1 className="text-2xl font-bold text-white">Automated Bots</h1>
             {activeTab === 'MY_BOTS' && (
               <button
@@ -269,14 +290,20 @@ export default function BotsPage() {
                 className="flex items-center px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors"
               >
                 <Plus className="w-4 h-4 mr-2" />
-                Create New Bot
+                <span className="hidden sm:inline">Create New Bot</span>
               </button>
             )}
           </div>
 
+          {archiveSuccessMessage && (
+            <div className="bg-green-900/50 text-green-400 text-sm p-3 rounded-md border border-green-800 mb-4">
+              {archiveSuccessMessage}
+            </div>
+          )}
+
           {isModalOpen && (
             <div className="fixed inset-0 bg-black bg-opacity-80 z-40 flex justify-center items-center">
-              <div className="bg-[#1e222d] rounded-lg shadow-xl w-full max-w-2xl m-4 relative border border-gray-700 max-h-[90vh] flex flex-col">
+              <div className="bg-[#1e222d] rounded-lg shadow-xl w-full sm:max-w-2xl m-4 relative border border-gray-700 max-h-[90vh] flex flex-col">
                 <div className="flex justify-between items-center p-6 border-b border-gray-700">
                   <h2 className="text-xl font-bold text-white">
                     Create New Bot
@@ -688,7 +715,7 @@ export default function BotsPage() {
                         <Pencil className="w-4 h-4" />
                     </button>
                     <button
-                      onClick={() => handleArchiveBot(bot._id)}
+                      onClick={() => handleArchiveBot(bot)}
                       className="p-1 text-gray-500 hover:text-red-500 transition-colors"
                       title="Archive Bot"
                     >
@@ -876,14 +903,13 @@ export default function BotsPage() {
                       <h3 className="text-lg font-bold text-white">
                         {bot.name}
                       </h3>
-                      <div className="text-xs text-gray-400">
-                        by {bot.userId?.fullName ?? 'Anonymous'}
-                      </div>
-                       {bot.profitSharePercent > 0 && (
-                        <div className="text-xs text-emerald-400 font-semibold mt-1">
-                            {bot.profitSharePercent}% Profit Share
-                        </div>
-                      )}
+                                             <div className="text-xs text-gray-400">
+                                               by {bot.userId?.fullName ?? 'Anonymous'}
+                                             </div>
+                                              {(bot.profitSharePercent ?? 0) > 0 && (
+                                               <div className="text-xs text-emerald-400 font-semibold mt-1">
+                                                   {bot.profitSharePercent}% Profit Share
+                                               </div>                      )}
                     </div>
                     <button
                       onClick={() => handleCloneClick(bot)}
@@ -929,12 +955,26 @@ export default function BotsPage() {
             setIsEditModalOpen(false);
             fetchMyBots();
           }}
-        />
-      )}
-    </>
-  );
-}
-
+          strategies={strategies}
+                  />
+              )}
+              <Dialog open={isArchiveModalOpen} onOpenChange={setIsArchiveModalOpen}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Are you sure you want to archive this bot?</DialogTitle>
+                    <DialogDescription>
+                      This action cannot be undone. This will permanently delete your bot and all of its data.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <DialogFooter>
+                    <button onClick={() => setIsArchiveModalOpen(false)} className="px-4 py-2 mr-3 text-gray-300 bg-gray-700 rounded-md hover:bg-gray-600 transition-colors">Cancel</button>
+                    <button onClick={confirmArchiveBot} className="px-5 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 font-semibold disabled:bg-red-900 disabled:cursor-not-allowed">Archive</button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </>
+          );
+        }
 const CloneBotModal = ({ bot, onClose, onSuccess }: { bot: Bot, onClose: () => void, onSuccess: () => void }) => {
     const [isPending, startTransition] = useTransition();
     const [error, setError] = useState<string | null>(null);
@@ -960,9 +1000,9 @@ const CloneBotModal = ({ bot, onClose, onSuccess }: { bot: Bot, onClose: () => v
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-80 z-40 flex justify-center items-center">
-            <div className="bg-[#1e222d] rounded-lg shadow-xl w-full max-w-lg m-4 relative border border-gray-700">
+            <div className="bg-[#1e222d] rounded-lg shadow-xl w-full sm:max-w-lg m-4 relative border border-gray-700">
                 <div className="flex justify-between items-center p-6 border-b border-gray-700">
-                    <h2 className="text-xl font-bold text-white">Clone "{bot.name}"</h2>
+                    <h2 className="text-xl font-bold text-white">Clone &quot;{bot.name}&quot;</h2>
                     <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors">
                         <X className="w-6 h-6" />
                     </button>
@@ -980,7 +1020,7 @@ const CloneBotModal = ({ bot, onClose, onSuccess }: { bot: Bot, onClose: () => v
                             <div><span className="font-semibold text-gray-300">Strategy:</span> {bot.strategy} ({feeTier.name})</div>
                             <div><span className="font-semibold text-gray-300">Assets:</span> {bot.assets.join(', ')}</div>
                             {bot.parameters && Object.keys(bot.parameters).length > 0 && (
-                                <div><span className="font-semibold text-gray-300">Parameters:</span> {Object.entries(bot.parameters).map(([k, v]: [string, any]) => `${k}: ${String(v)}`).join(', ')}</div>
+                                <div><span className="font-semibold text-gray-300">Parameters:</span> {Object.entries(bot.parameters).map(([k, v]: [string, string | number | boolean]) => `${k}: ${String(v)}`).join(', ')}</div>
                             )}
                         </div>
                     </div>
@@ -988,13 +1028,13 @@ const CloneBotModal = ({ bot, onClose, onSuccess }: { bot: Bot, onClose: () => v
                     <div className="space-y-2 text-xs text-gray-400 bg-gray-900/50 p-3 rounded-md">
                         <h4 className="font-bold text-gray-300 mb-2">Fee Breakdown (on profits):</h4>
                         <div className="flex justify-between"><span>Platform Fee ({feeTier.name}):</span> <span>{feeTier.fee}%</span></div>
-                        <div className="flex justify-between"><span>Creator's Profit Share:</span> <span>{bot.profitSharePercent}%</span></div>
+                        <div className="flex justify-between"><span>Creator&apos;s Profit Share:</span> <span>{bot.profitSharePercent}%</span></div>
                         <hr className="border-gray-700 my-1" />
-                        <div className="flex justify-between font-semibold text-gray-300"><span>Total Fees on Profit:</span> <span>{feeTier.fee + bot.profitSharePercent}%</span></div>
+                        <div className="flex justify-between font-semibold text-gray-300"><span>Total Fees on Profit:</span> <span>{feeTier.fee + (bot.profitSharePercent ?? 0)}%</span></div>
                     </div>
 
                     <div>
-                        <label htmlFor="clone-name" className="block text-sm font-medium text-gray-300 mb-1">Your Bot's Name</label>
+                        <label htmlFor="clone-name" className="block text-sm font-medium text-gray-300 mb-1">Your Bot&apos;s Name</label>
                         <input
                             type="text"
                             name="name"
@@ -1050,7 +1090,7 @@ const CloneBotModal = ({ bot, onClose, onSuccess }: { bot: Bot, onClose: () => v
     );
 };
 
-const EditBotModal = ({ bot, isLocked, onClose, onSuccess }: { bot: Bot, isLocked: boolean, onClose: () => void, onSuccess: () => void }) => {
+const EditBotModal = ({ bot, isLocked, onClose, onSuccess, strategies }: { bot: Bot, isLocked: boolean, onClose: () => void, onSuccess: () => void, strategies: Strategy[] }) => {
     const [isPending, startTransition] = useTransition();
     const [error, setError] = useState<string | null>(null);
     const formRef = React.useRef<HTMLFormElement>(null);
@@ -1061,16 +1101,19 @@ const EditBotModal = ({ bot, isLocked, onClose, onSuccess }: { bot: Bot, isLocke
         if (!formRef.current) return;
         const formData = new FormData(formRef.current);
         
+        const tradeAmountRaw = formData.get('tradeAmount');
+        const stopLossAmountRaw = formData.get('stopLossAmount');
+
         const payload: any = {
-            config: {},
-            parameters: {}
+            name: formData.get('name')?.toString(),
+            visibility: formData.get('visibility')?.toString(),
+            config: {
+                tradeAmount: tradeAmountRaw ? Number(tradeAmountRaw) : undefined,
+                stopLossAmount: stopLossAmountRaw ? Number(stopLossAmountRaw) : undefined,
+            },
+            parameters: {},
+            strategy: formData.get('strategy')?.toString()
         };
-        
-        // Always editable fields
-        payload.name = formData.get('name');
-        payload.visibility = formData.get('visibility');
-        payload.config.tradeAmount = formData.get('tradeAmount');
-        payload.config.stopLossAmount = formData.get('stopLossAmount');
 
         // Conditionally editable fields
         if (!isLocked) {
@@ -1104,9 +1147,9 @@ const EditBotModal = ({ bot, isLocked, onClose, onSuccess }: { bot: Bot, isLocke
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-80 z-40 flex justify-center items-center">
-            <div className="bg-[#1e222d] rounded-lg shadow-xl w-full max-w-2xl m-4 relative border border-gray-700 max-h-[90vh] flex flex-col">
+            <div className="bg-[#1e222d] rounded-lg shadow-xl w-full sm:max-w-2xl m-4 relative border border-gray-700 max-h-[90vh] flex flex-col">
                 <div className="flex justify-between items-center p-6 border-b border-gray-700">
-                    <h2 className="text-xl font-bold text-white">Edit "{bot.name}"</h2>
+                    <h2 className="text-xl font-bold text-white">Edit &quot;{bot.name}&quot;</h2>
                     <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors">
                         <X className="w-6 h-6" />
                     </button>
@@ -1153,7 +1196,7 @@ const EditBotModal = ({ bot, isLocked, onClose, onSuccess }: { bot: Bot, isLocke
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>
                                     <label className="flex items-center text-xs font-medium text-gray-400 mb-1">Period</label>
-                                    <input name="period" type="number" defaultValue={bot.parameters?.period ?? 14} className="w-full bg-gray-800 border-gray-600 rounded px-2 py-1.5 text-sm" />
+                                    <input name="period" type="number" defaultValue={typeof bot.parameters?.period === 'boolean' ? 14 : bot.parameters?.period ?? 14} className="w-full bg-gray-800 border-gray-600 rounded px-2 py-1.5 text-sm" />
                                 </div>
                                 </div>
                             )}
@@ -1161,15 +1204,15 @@ const EditBotModal = ({ bot, isLocked, onClose, onSuccess }: { bot: Bot, isLocke
                                 <div className="grid grid-cols-3 gap-4">
                                      <div>
                                         <label className="flex items-center text-xs font-medium text-gray-400 mb-1">Fast</label>
-                                        <input name="fastPeriod" type="number" defaultValue={bot.parameters?.fastPeriod ?? 12} className="w-full bg-gray-800 border-gray-600 rounded px-2 py-1.5 text-sm" />
+                                        <input name="fastPeriod" type="number" defaultValue={typeof bot.parameters?.fastPeriod === 'boolean' ? 12 : bot.parameters?.fastPeriod ?? 12} className="w-full bg-gray-800 border-gray-600 rounded px-2 py-1.5 text-sm" />
                                     </div>
                                     <div>
                                         <label className="flex items-center text-xs font-medium text-gray-400 mb-1">Slow</label>
-                                        <input name="slowPeriod" type="number" defaultValue={bot.parameters?.slowPeriod ?? 26} className="w-full bg-gray-800 border-gray-600 rounded px-2 py-1.5 text-sm" />
+                                        <input name="slowPeriod" type="number" defaultValue={typeof bot.parameters?.slowPeriod === 'boolean' ? 26 : bot.parameters?.slowPeriod ?? 26} className="w-full bg-gray-800 border-gray-600 rounded px-2 py-1.5 text-sm" />
                                     </div>
                                     <div>
                                         <label className="flex items-center text-xs font-medium text-gray-400 mb-1">Signal</label>
-                                        <input name="signalPeriod" type="number" defaultValue={bot.parameters?.signalPeriod ?? 9} className="w-full bg-gray-800 border-gray-600 rounded px-2 py-1.5 text-sm" />
+                                        <input name="signalPeriod" type="number" defaultValue={typeof bot.parameters?.signalPeriod === 'boolean' ? 9 : bot.parameters?.signalPeriod ?? 9} className="w-full bg-gray-800 border-gray-600 rounded px-2 py-1.5 text-sm" />
                                     </div>
                                 </div>
                             )}
@@ -1177,11 +1220,11 @@ const EditBotModal = ({ bot, isLocked, onClose, onSuccess }: { bot: Bot, isLocke
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="flex items-center text-xs font-medium text-gray-400 mb-1">Fast Period</label>
-                                        <input name="fastPeriod" type="number" defaultValue={bot.parameters?.fastPeriod ?? 10} className="w-full bg-gray-800 border-gray-600 rounded px-2 py-1.5 text-sm" />
+                                        <input name="fastPeriod" type="number" defaultValue={typeof bot.parameters?.fastPeriod === 'boolean' ? 10 : bot.parameters?.fastPeriod ?? 10} className="w-full bg-gray-800 border-gray-600 rounded px-2 py-1.5 text-sm" />
                                     </div>
                                     <div>
                                         <label className="flex items-center text-xs font-medium text-gray-400 mb-1">Slow Period</label>
-                                        <input name="slowPeriod" type="number" defaultValue={bot.parameters?.slowPeriod ?? 50} className="w-full bg-gray-800 border-gray-600 rounded px-2 py-1.5 text-sm" />
+                                        <input name="slowPeriod" type="number" defaultValue={typeof bot.parameters?.slowPeriod === 'boolean' ? 50 : bot.parameters?.slowPeriod ?? 50} className="w-full bg-gray-800 border-gray-600 rounded px-2 py-1.5 text-sm" />
                                     </div>
                                 </div>
                             )}

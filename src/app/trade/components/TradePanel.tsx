@@ -24,6 +24,7 @@ export default function TradePanel({
   isTradePanelSidebarOpen,
   setIsTradePanelSidebarOpen,
   connectionStatus,
+  activeInstrument,
 }: {
   instruments: Instrument[];
   selectedInstrument: string;
@@ -34,6 +35,7 @@ export default function TradePanel({
   isTradePanelSidebarOpen: boolean;
   setIsTradePanelSidebarOpen: (isOpen: boolean) => void;
   connectionStatus: string;
+  activeInstrument: any;
 }) {
   const { wallet } = useUserStore();
   const [stake, setStake] = React.useState<number>(10);
@@ -45,6 +47,7 @@ export default function TradePanel({
     : 0;
 
   const isInsufficientFunds = stake > currentBalance;
+  const isMarketClosed = activeInstrument?.isMarketOpen === false;
 
   const instrumentOptions = instruments.map((inst) => ({
     value: inst.symbol,
@@ -52,21 +55,21 @@ export default function TradePanel({
   }));
 
   return (
-    <div className="relative">
+    <div className="h-full bg-[#1e222d] w-full sm:w-80">
       <button
         onClick={() => setIsTradePanelSidebarOpen(!isTradePanelSidebarOpen)}
-        className="absolute top-0 left-0 z-20 w-8 h-full flex items-center justify-center text-white rounded-full cursor-pointer transition-colors"
+        className="absolute top-0 left-0 z-20 w-8 h-full flex items-center justify-center text-white rounded-full cursor-pointer transition-colors md:hidden"
         aria-label={isTradePanelSidebarOpen ? 'Close trade panel' : 'Open trade panel'}
       >
-        {isTradePanelSidebarOpen ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
+        <ChevronRight className="w-5 h-5" />
       </button>
       <div
-        className={`shrink-0 border-l border-gray-700 transition-all pl-8 duration-300 ease-in-out
-                  ${isTradePanelSidebarOpen ? 'w-80 p-4' : 'w-8 overflow-hidden'}
-                  flex flex-col`}
+        className={`h-full flex flex-col border-l border-gray-700 transition-all duration-300 ease-in-out
+                  md:pl-8 
+                  ${isTradePanelSidebarOpen ? 'md:w-80 p-4' : 'md:w-8 overflow-hidden'}`}
       >
         {isTradePanelSidebarOpen && (
-          <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 space-y-6">
+          <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 space-y-6 md:pl-0 pl-8">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold text-white">Trade</h2>
               <div
@@ -143,14 +146,19 @@ export default function TradePanel({
                   defaultValue="60"
                 />
               </div>
+              {isMarketClosed && (
+                <div className="text-center text-sm text-orange-400 font-semibold p-2 bg-orange-900/20 rounded-md">
+                    Market is currently closed for this asset.
+                </div>
+              )}
               <div className="flex space-x-4">
                 <button
                   type="submit"
                   name="direction"
                   value="UP"
-                  disabled={isInsufficientFunds}
+                  disabled={isInsufficientFunds || isMarketClosed}
                   className={`w-full px-4 py-3 text-sm font-bold text-white rounded-md transition-opacity flex items-center justify-center gap-2 ${
-                    isInsufficientFunds
+                    isInsufficientFunds || isMarketClosed
                       ? 'bg-emerald-800 opacity-50 cursor-not-allowed'
                       : 'bg-emerald-600 hover:bg-emerald-700'
                   }`}
@@ -162,9 +170,9 @@ export default function TradePanel({
                   type="submit"
                   name="direction"
                   value="DOWN"
-                  disabled={isInsufficientFunds}
+                  disabled={isInsufficientFunds || isMarketClosed}
                   className={`w-full px-4 py-3 text-sm font-bold text-white rounded-md transition-opacity flex items-center justify-center gap-2 ${
-                    isInsufficientFunds
+                    isInsufficientFunds || isMarketClosed
                       ? 'bg-red-800 opacity-50 cursor-not-allowed'
                       : 'bg-red-600 hover:bg-red-700'
                   }`}
@@ -186,3 +194,4 @@ export default function TradePanel({
     </div>
   );
 }
+
