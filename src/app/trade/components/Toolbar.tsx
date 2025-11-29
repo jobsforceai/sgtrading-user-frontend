@@ -25,15 +25,23 @@ export default function Toolbar({
         >
           <Menu className="w-5 h-5" />
         </button>
-        <div 
+        <div
             className="flex items-center space-x-2 text-xs cursor-pointer p-1 hover:bg-gray-700 rounded"
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
         >
             <span className="font-bold text-white">{activeInstrument?.displayName}</span>
-            <span className="text-gray-600">|</span>
-            <span>{activeInstrument?.type}</span>
-            <span className="text-gray-600">|</span>
-            <span>Payout: {activeInstrument?.defaultPayoutPercent}%</span>
+            <span className="text-gray-600 hidden sm:inline">|</span>
+            <span className="hidden sm:inline">{activeInstrument?.type}</span>
+            <span className="text-gray-600 hidden sm:inline">|</span>
+            <span className="hidden sm:inline">Payout: {activeInstrument?.defaultPayoutPercent}%</span>
+            {activeInstrument?.marketStatus && (
+              <>
+                <span className="text-gray-600 hidden sm:inline">|</span>
+                <span className={`font-bold hidden sm:inline ${activeInstrument.isMarketOpen ? 'text-green-400' : 'text-red-400'}`}>
+                  {activeInstrument.marketStatus}
+                </span>
+              </>
+            )}
         </div>
       </div>
       <div className="flex items-center space-x-2">

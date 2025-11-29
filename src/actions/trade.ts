@@ -25,9 +25,7 @@ export async function getQuote(symbol: string) {
     const { data } = await api.get(`/markets/quotes?symbol=${symbol}`, {
       headers: { Authorization: `Bearer ${token.value}` },
     });
-    return {
-      data,
-    };
+    return data;
   } catch (error) {
     const errorMessage = isAxiosError(error) && error.response?.data?.message
       ? (error.response.data.message as string)
@@ -63,9 +61,7 @@ export async function createTrade(prevState: unknown, formData: FormData) {
         Authorization: `Bearer ${token.value}`,
       },
     });
-    return {
-      data,
-    };
+    return data;
   } catch (error) {
     const errorMessage = isAxiosError(error) && error.response?.data?.message
       ? (error.response.data.message as string)
@@ -92,9 +88,7 @@ export async function getOpenTrades() {
         Authorization: `Bearer ${token.value}`,
       },
     });
-    return {
-      data,
-    };
+    return data;
   } catch (error) {
     const errorMessage = isAxiosError(error) && error.response?.data?.message
       ? (error.response.data.message as string)
@@ -132,9 +126,7 @@ export async function getTradeHistory(mode?: string, page: number = 1, limit: nu
       },
     });
 
-    return {
-      data,
-    };
+    return data;
   } catch (error) {
     const errorMessage = isAxiosError(error) && error.response?.data?.message
       ? (error.response.data.message as string)
@@ -166,9 +158,7 @@ export async function getHistoricalData(
       }
     );
 
-    return {
-      data,
-    };
+    return data;
   } catch (error) {
     const errorMessage = isAxiosError(error) && error.response?.data?.message
       ? (error.response.data.message as string)

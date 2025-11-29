@@ -7,6 +7,7 @@ interface Instrument {
   type: string;
   decimalPlaces: number;
   defaultPayoutPercent: number;
+  isMarketOpen?: boolean;
 }
 
 interface Trade {
@@ -65,7 +66,7 @@ interface TradeState {
 
 export const useTradeStore = create<TradeState>((set) => ({
   activeSymbol: '',
-  chartType: 'Candlestick',
+  chartType: 'Area',
   instruments: [],
   historicalData: {},
   isSidebarOpen: false,

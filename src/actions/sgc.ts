@@ -29,7 +29,7 @@ export async function redeemSgcCode(prevState: unknown, formData: FormData) {
   }
 
   try {
-    const { data } = await api.post('/sgc-onramp/redeem', validatedFields.data, {
+    const { data } = await api.post('/redeem', validatedFields.data, {
       headers: {
         Authorization: `Bearer ${token.value}`,
       },

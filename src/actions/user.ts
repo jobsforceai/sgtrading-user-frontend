@@ -20,9 +20,7 @@ export async function getProfile() {
         Authorization: `Bearer ${token.value}`,
       },
     });
-    return {
-      data,
-    };
+    return data;
   } catch (error) {
     const errorMessage = isAxiosError(error) && error.response?.data?.message
       ? (error.response.data.message as string)
@@ -49,9 +47,7 @@ export async function getWallet() {
         Authorization: `Bearer ${token.value}`,
       },
     });
-    return {
-      data,
-    };
+    return data;
   } catch (error) {
     const errorMessage = isAxiosError(error) && error.response?.data?.message
       ? (error.response.data.message as string)

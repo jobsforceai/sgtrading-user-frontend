@@ -1,4 +1,5 @@
 import { Linkedin, Send, Facebook, Gamepad2 } from 'lucide-react';
+import Link from 'next/link';
 
 export function Footer() {
   const year = new Date().getFullYear();
@@ -9,10 +10,10 @@ export function Footer() {
       <div className="pointer-events-none absolute inset-0 bg-footer-grid opacity-20" />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.45),_transparent_70%)]" />
 
-      {/* huge SgxTrading word in background */}
+      {/* huge 360Trader word in background */}
       <div className="pointer-events-none absolute inset-x-[-4vw] -bottom-20 z-0 flex justify-center">
         <span className="footer-brand-text select-none text-[15vw] leading-none opacity-[0.4]">
-          SGXTRADING
+          360TRADER
         </span>
       </div>
 
@@ -24,21 +25,27 @@ export function Footer() {
             <div className="h-5 w-5 rounded-xl bg-emerald-400" />
           </div>
           <span className="text-xs font-semibold tracking-[0.3em] text-emerald-300">
-            SGXTRADING
+            360TRADER
           </span>
         </div>
 
         {/* nav */}
         <nav className="hidden items-center gap-8 text-[11px] text-slate-200 md:flex">
-          {['Bots', 'Markets', 'Trade', 'Token', 'AI Assistant', 'Contact'].map(
-            (item) => (
-              <button
-                key={item}
-                className="transition-colors hover:text-white"
-              >
-                {item}
-              </button>
-            ),
+          {['Bots', 'Markets', 'Trade', 'Token', 'Contact'].map(
+            (item) => {
+              const href =
+                item === 'Bots' ? '/bots' :
+                item === 'Markets' ? '/trade' :
+                item === 'Trade' ? '/trade' :
+                item === 'Token' ? '/#portfolio' :
+                item === 'Contact' ? '/#contact' : '/';
+
+              return (
+                <Link key={item} href={href} className="transition-colors hover:text-white">
+                  {item}
+                </Link>
+              );
+            }
           )}
         </nav>
 
@@ -61,7 +68,7 @@ export function Footer() {
 
       {/* bottom row: copyright + font note */}
       <div className="relative z-10 mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-6 pb-8 pt-4 text-[11px] text-slate-500 md:flex-row md:px-10">
-        <p>© {year} SgxTrading. All rights reserved.</p>
+        <p>© {year} 360Trader. All rights reserved.</p>
 
       </div>
     </footer>

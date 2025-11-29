@@ -39,7 +39,15 @@ api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
     const originalRequest = error.config as any;
+    const errorData = error.response?.data as { message?: string };
 
+    // If the error is specifically "Invalid token", logout immediately.
+    if (error.response?.status === 401 && errorData?.message === 'Invalid token') {
+      const { logout } = useAuthStore.getState();
+      logout();
+      return Promise.reject(error);
+    }
+    
     if (error.response?.status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
         return new Promise(function (resolve, reject) {

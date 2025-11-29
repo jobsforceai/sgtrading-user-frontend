@@ -13,7 +13,7 @@
              <div className="h-6 w-6 rounded-xl bg-emerald-400 shadow-btn-glow" />
            </div>
            <span className="text-xs font-semibold tracking-[0.3em] text-emerald-200">
-             SgTrading
+             360Trader
            </span>
          </div>
        </div>
@@ -31,7 +31,7 @@
                <div className="h-4 w-4 rounded-md bg-slate-900/40" />
              </Link>
  
-             {['Bots', 'Markets', 'Trade', 'Token', 'AI Assistant'].map(
+             {['Bots', 'Markets', 'Trade', 'Token', 'FAQ'].map(
                (item) => {
                  const href =
                    item === 'Bots'
@@ -42,6 +42,8 @@
                      ? '/trade'
                      : item === 'Token'
                      ? '/#portfolio'
+                     : item === 'FAQ'
+                     ? '/#faq'
                      : '/trade';
  
                  return (

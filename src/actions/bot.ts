@@ -24,10 +24,10 @@ export async function getBots() {
   }
 
   try {
-    const { data } = await api.get('/bots', {
+    const { data } = await api.get(`/bots`, {
       headers: { Authorization: `Bearer ${token.value}` },
     });
-    return { data };
+    return data;
   } catch (error) {
     const errorMessage = isAxiosError(error) && error.response?.data?.message
       ? (error.response.data.message as string)
@@ -36,8 +36,27 @@ export async function getBots() {
   }
 }
 
+type BotData = {
+    [key: string]: string | number | (string | number)[] | undefined;
+};
+
 export async function createBot(prevState: unknown, formData: FormData) {
-  const rawData = Object.fromEntries(formData.entries());
+  const rawData: BotData = {};
+  for (const [key, value] of formData.entries()) {
+      if (!(value instanceof File)) {
+        const existing = rawData[key];
+        if (existing !== undefined) {
+            if (Array.isArray(existing)) {
+                existing.push(value);
+            } else {
+                rawData[key] = [existing as string | number, value];
+            }
+        } else {
+            rawData[key] = value;
+        }
+      }
+  }
+  
   const clonedFrom = rawData.clonedFrom as string | undefined;
 
   const cookieStore = await cookies();
@@ -79,7 +98,7 @@ export async function createBot(prevState: unknown, formData: FormData) {
     // Logic for creating a new personal bot, per final documentation
     const assets = formData.getAll('assets') as string[];
     const strategy = rawData.strategy as string;
-    let parameters: any = {};
+    let parameters: Record<string, number> = {};
 
     if (strategy === 'RSI_STRATEGY') {
         parameters = { period: Number(rawData.period || 14) };
@@ -117,7 +136,7 @@ export async function createBot(prevState: unknown, formData: FormData) {
     const payload = {
         name: rawData.name,
         visibility: rawData.visibility,
-        strategy: strategy as any,
+        strategy: strategy as z.infer<typeof createBotSchema>['strategy'],
         assets,
         profitSharePercent: rawData.visibility === 'PUBLIC' ? Number(rawData.profitSharePercent) : undefined,
         config: {
@@ -159,7 +178,7 @@ export async function getPublicBots() {
       headers: token ? { Authorization: `Bearer ${token.value}` } : {},
   });
     console.log('API response from /bots/public:', data);
-    return { data };
+    return data;
   } catch (error) {
     const errorMessage = isAxiosError(error) && error.response?.data?.message
       ? (error.response.data.message as string)
@@ -168,7 +187,17 @@ export async function getPublicBots() {
   }
 }
 
-export async function updateBot(botId: string, payload: any) {
+type BotUpdatePayload = {
+    status?: 'ACTIVE' | 'PAUSED';
+    config?: {
+        tradeAmount?: number;
+    };
+    insuranceEnabled?: boolean;
+    parameters?: Record<string, any>;
+    assets?: string[];
+};
+
+export async function updateBot(botId: string, payload: BotUpdatePayload) {
     const cookieStore = await cookies();
     const token = cookieStore.get('accessToken');
   
@@ -180,7 +209,7 @@ export async function updateBot(botId: string, payload: any) {
       const { data } = await api.patch(`/bots/${botId}`, payload, {
         headers: { Authorization: `Bearer ${token.value}` },
       });
-      return { data };
+      return data;
     } catch (error) {
       const errorMessage = isAxiosError(error) && error.response?.data?.message
         ? (error.response.data.message as string)
@@ -193,37 +222,42 @@ export async function getBotDefinitions() {
     const cookieStore = await cookies();
     const token = cookieStore.get('accessToken');
 
+    const fallback = { 
+        strategies: [
+            { id: 'RANDOM_TEST', name: 'Random Tester', description: 'Randomly trades for testing purposes.', isPremium: false },
+            { id: 'RSI_STRATEGY', name: 'RSI Strategy', description: 'Trades on RSI overbought/oversold signals.', isPremium: true },
+            { id: 'MACD_STRATEGY', name: 'MACD Crossover', description: 'Trades on MACD line crossovers.', isPremium: true },
+            { id: 'SMA_CROSSOVER', name: 'SMA Crossover', description: 'Trades on simple moving average crossovers.', isPremium: true }
+        ],
+        parameters: {
+            tradeAmount: "The amount of money (USD) invested in each individual trade.",
+            expirySeconds: "The duration of each trade in seconds.",
+            maxConcurrentTrades: "Maximum number of open trades allowed at one time.",
+            stopLossAmount: "Bot stops if Net Loss reaches this amount.",
+            takeProfitAmount: "Bot stops if Net Profit reaches this amount.",
+            insuranceEnabled: "If enabled, losing trades are fully refunded.",
+            assets: "The financial instruments the bot will monitor and trade.",
+            period: "Sensitivity period. Lower values are more reactive.",
+            fastPeriod: "Short-term moving average lookback period.",
+            slowPeriod: "Long-term moving average lookback period.",
+            signalPeriod: "Smoothing period for the signal line."
+        }
+    };
+
     try {
         const { data } = await api.get('/bots/definitions', {
             headers: token ? { Authorization: `Bearer ${token.value}` } : {},
         });
-        return { data };
+
+        if (data && Array.isArray(data.strategies) && data.strategies.length > 0) {
+            return data;
+        } else {
+            console.warn("API returned invalid bot definitions, using fallback.");
+            return fallback;
+        }
     } catch (error) {
         console.error("Failed to fetch bot definitions, returning fallback. Error:", error);
-        // Fallback definitions if endpoint fails, matching the expected structure
-        return { 
-            data: {
-                strategies: [
-                    { id: 'RANDOM_TEST', name: 'Random Tester', description: 'Randomly trades for testing purposes.' },
-                    { id: 'RSI_STRATEGY', name: 'RSI Strategy', description: 'Trades on RSI overbought/oversold signals.' },
-                    { id: 'MACD_STRATEGY', name: 'MACD Crossover', description: 'Trades on MACD line crossovers.' },
-                    { id: 'SMA_CROSSOVER', name: 'SMA Crossover', description: 'Trades on simple moving average crossovers.' }
-                ],
-                parameters: {
-                    tradeAmount: "The amount of money (USD) invested in each individual trade.",
-                    expirySeconds: "The duration of each trade in seconds.",
-                    maxConcurrentTrades: "Maximum number of open trades allowed at one time.",
-                    stopLossAmount: "Bot stops if Net Loss reaches this amount.",
-                    takeProfitAmount: "Bot stops if Net Profit reaches this amount.",
-                    insuranceEnabled: "If enabled, losing trades are fully refunded.",
-                    assets: "The financial instruments the bot will monitor and trade.",
-                    period: "Sensitivity period. Lower values are more reactive.",
-                    fastPeriod: "Short-term moving average lookback period.",
-                    slowPeriod: "Long-term moving average lookback period.",
-                    signalPeriod: "Smoothing period for the signal line."
-                }
-            }
-        };
+        return fallback;
     }
 }
 

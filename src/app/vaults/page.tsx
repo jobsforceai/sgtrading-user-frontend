@@ -87,32 +87,29 @@ export default function VaultsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedVault, setSelectedVault] = useState<Vault | null>(null);
-  const { wallet, setWallet } = useUserStore();
+  const { setWallet } = useUserStore();
   const [isActivateModalOpen, setIsActivateModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'ACTIVE' | 'HISTORY'>('ACTIVE');
 
-  const fetchVaults = useCallback(async () => {
-    const res = await getVaults();
-    if (res.data) {
-      setVaults(res.data);
-    }
-  }, []);
-
-  const fetchWallet = useCallback(async () => {
-    const res = await getWallet();
-    if (res.data) {
-      setWallet(res.data);
-    }
+  const fetchVaultsAndWallet = useCallback(async () => {
+    getVaults().then(res => {
+      if (res && !res.error) setVaults(res);
+    });
+    getWallet().then(res => {
+      if (res && !res.error) setWallet(res);
+    });
   }, [setWallet]);
 
   useEffect(() => {
-    fetchVaults();
-    fetchWallet();
-    const interval = setInterval(() => {
-        fetchVaults();
-        fetchWallet();
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [fetchVaults, fetchWallet]);
+    fetchVaultsAndWallet();
+  }, [fetchVaultsAndWallet]);
+  
+  const onActionSuccess = () => {
+      fetchVaultsAndWallet();
+      setIsModalOpen(false);
+      setIsCreateModalOpen(false);
+      setIsActivateModalOpen(false);
+  }
 
   const handleDepositClick = (vault: Vault) => {
     setSelectedVault(vault);
@@ -127,33 +124,63 @@ export default function VaultsPage() {
   const handleActivateConfirm = async () => {
     if (!selectedVault) return;
     await activateVault(selectedVault._id);
-    setIsActivateModalOpen(false);
-    fetchVaults();
+    onActionSuccess();
   };
   
   const handleWithdraw = async (vaultId: string) => {
       if (!window.confirm("Are you sure you want to withdraw your funds? This can only be done during the funding phase.")) return;
       await withdrawFromVault(vaultId);
-      fetchVaults();
-      fetchWallet();
+      onActionSuccess();
   }
+
+  const { activeVaults, historyVaults } = React.useMemo(() => {
+    const active: Vault[] = [];
+    const history: Vault[] = [];
+    vaults.forEach(vault => {
+        if (vault.status === 'FUNDING' || vault.status === 'ACTIVE') {
+            active.push(vault);
+        } else {
+            history.push(vault);
+        }
+    });
+    return { activeVaults: active, historyVaults: history };
+  }, [vaults]);
+
+  const vaultsToDisplay = activeTab === 'ACTIVE' ? activeVaults : historyVaults;
 
   return (
     <div className="min-h-screen bg-black text-gray-300 p-6">
       <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
           <h1 className="text-2xl font-bold text-white">Investment Vaults</h1>
           <button
             onClick={() => setIsCreateModalOpen(true)}
             className="flex items-center px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors"
           >
             <Plus className="w-4 h-4 mr-2" />
-            Create New Vault
+            <span className="hidden sm:inline">Create New Vault</span>
           </button>
+        </div>
+        
+        <div className="mb-6 border-b border-gray-700">
+            <div className="flex space-x-4">
+                <button 
+                    onClick={() => setActiveTab('ACTIVE')}
+                    className={`px-4 py-2 text-sm font-medium transition-colors ${activeTab === 'ACTIVE' ? 'text-emerald-400 border-b-2 border-emerald-400' : 'text-gray-400 hover:text-white'}`}
+                >
+                    Active ({activeVaults.length})
+                </button>
+                <button 
+                    onClick={() => setActiveTab('HISTORY')}
+                    className={`px-4 py-2 text-sm font-medium transition-colors ${activeTab === 'HISTORY' ? 'text-emerald-400 border-b-2 border-emerald-400' : 'text-gray-400 hover:text-white'}`}
+                >
+                    History ({historyVaults.length})
+                </button>
+            </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {vaults.map((vault) => (
+          {vaultsToDisplay.map((vault) => (
             <VaultCard 
               key={vault._id} 
               vault={vault} 
@@ -166,7 +193,7 @@ export default function VaultsPage() {
       </div>
       
       {isModalOpen && selectedVault && (
-        <DepositModal vault={selectedVault} onClose={() => setIsModalOpen(false)} onDepositSuccess={fetchVaults} />
+        <DepositModal vault={selectedVault} onClose={() => setIsModalOpen(false)} onDepositSuccess={onActionSuccess} />
       )}
       {isActivateModalOpen && selectedVault && (
         <ActivateVaultModal 
@@ -178,10 +205,7 @@ export default function VaultsPage() {
       {isCreateModalOpen && (
           <CreateVaultModal 
               onClose={() => setIsCreateModalOpen(false)}
-              onSuccess={() => {
-                  setIsCreateModalOpen(false);
-                  fetchVaults();
-              }}
+              onSuccess={onActionSuccess}
           />
       )}
     </div>
@@ -305,7 +329,7 @@ const DepositModal = ({ vault, onClose, onDepositSuccess }: { vault: Vault, onCl
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-80 z-40 flex justify-center items-center">
-            <div className="bg-[#1e222d] rounded-lg shadow-xl w-full max-w-md m-4 border border-gray-700">
+            <div className="bg-[#1e222d] rounded-lg shadow-xl w-full sm:max-w-md m-4 border border-gray-700">
                 <div className="flex justify-between items-center p-6 border-b border-gray-700">
                     <h2 className="text-xl font-bold text-white">Invest in {vault.name}</h2>
                     <button onClick={onClose} className="text-gray-500 hover:text-white"><X /></button>
@@ -355,7 +379,7 @@ const ActivateVaultModal = ({ vault, onClose, onConfirm }: { vault: Vault, onClo
     const collateralAmount = (vault.targetAmountUsd * vault.creatorCollateralPercent / 100).toFixed(2);
     return (
         <div className="fixed inset-0 bg-black bg-opacity-80 z-40 flex justify-center items-center">
-            <div className="bg-[#1e222d] rounded-lg shadow-xl w-full max-w-md m-4 border border-gray-700">
+            <div className="bg-[#1e222d] rounded-lg shadow-xl w-full sm:max-w-md m-4 border border-gray-700">
                  <div className="flex justify-between items-center p-6 border-b border-gray-700">
                     <h2 className="text-xl font-bold text-white">Activate Vault</h2>
                     <button onClick={onClose} className="text-gray-500 hover:text-white"><X /></button>
@@ -379,12 +403,13 @@ const CreateVaultModal = ({ onClose, onSuccess }: { onClose: () => void, onSucce
     const [error, setError] = useState<string | null>(null);
     const formRef = React.useRef<HTMLFormElement>(null);
     const [myBots, setMyBots] = useState<Bot[]>([]);
+    const { user } = useUserStore();
 
     useEffect(() => {
         const fetchBots = async () => {
             const res = await getBots();
-            if (res.data) {
-                setMyBots(res.data);
+            if (res && !res.error) {
+                setMyBots(res);
             }
         };
         fetchBots();
@@ -408,7 +433,7 @@ const CreateVaultModal = ({ onClose, onSuccess }: { onClose: () => void, onSucce
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-80 z-40 flex justify-center items-center">
-            <div className="bg-[#1e222d] rounded-lg shadow-xl w-full max-w-2xl m-4 relative border border-gray-700 max-h-[90vh] flex flex-col">
+            <div className="bg-[#1e222d] rounded-lg shadow-xl w-full sm:max-w-2xl m-4 relative border border-gray-700 max-h-[90vh] flex flex-col">
                  <div className="flex justify-between items-center p-6 border-b border-gray-700">
                     <h2 className="text-xl font-bold text-white">Create New Investment Vault</h2>
                     <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors"><X /></button>
