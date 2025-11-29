@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
@@ -119,12 +119,26 @@ const slides: Slide[] = [
 
 export function BotsSliderSection() {
   const [index, setIndex] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
 
   const next = () => setIndex((prev) => (prev + 1) % slides.length);
   const prev = () => setIndex((prev) => (prev - 1 + slides.length) % slides.length);
 
+  // Auto-slide every 5 seconds unless paused (hover)
+  useEffect(() => {
+    if (isPaused) return;
+    const id = setInterval(() => {
+      setIndex((prev) => (prev + 1) % slides.length);
+    }, 4000);
+    return () => clearInterval(id);
+  }, [isPaused]);
+
   return (
-    <section className="relative mx-auto w-full overflow-x-hidden md:h-screen md:flex md:items-center">
+    <section
+      className="relative mx-auto w-full overflow-x-hidden md:h-screen md:flex md:items-center"
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+    >
       <div className="max-w-6xl mx-auto py-8">
 
         
