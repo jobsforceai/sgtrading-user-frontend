@@ -2,6 +2,7 @@
  
  import Link from 'next/link';
  import { ArrowRight } from 'lucide-react';
+import Image from 'next/image';
  
  export function LandingNavbar() {
    return (
@@ -27,8 +28,8 @@
               }}>
            <nav className="flex items-center gap-6 rounded-full bg-black/40 p-1 text-xs text-slate-100">
              {/* Left circular icon */}
-             <Link href="/" aria-label="Home" className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500 text-slate-950 shadow-btn-glow">
-               <div className="h-4 w-4 rounded-md bg-slate-900/40" />
+             <Link href="/" aria-label="Home" className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-900 text-slate-950 shadow-btn-glow">
+               <Image src="/bull.png" alt="Logo" width={40} height={40} />
              </Link>
  
              {['Bots', 'Markets', 'Trade', 'Token', 'FAQ'].map(
