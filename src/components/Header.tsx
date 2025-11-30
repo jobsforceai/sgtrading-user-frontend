@@ -10,6 +10,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { UserCircle2, LogOut, Bot, LineChart, Landmark, Menu, X } from 'lucide-react';
 import ProfileSidebar from './ProfileSidebar';
+import Image from 'next/image';
 
 export default function Header() {
   const { user, logout } = useAuthStore();
@@ -72,9 +73,14 @@ export default function Header() {
             {/* Left: Logo */}
             <div className="flex items-center space-x-4">
               <Link href="/" className="flex items-center space-x-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--bg-accent-subtle)] ring-1 ring-[var(--ring-accent)]">
-                  <div className="h-4 w-4 rounded-lg bg-[var(--dot-accent)]" />
-                </div>
+                <Image
+                  src="/360logo.png"
+                  alt="SgTrading Logo"
+                  width={40}
+                  height={40}
+                  className="h-8 w-auto"
+                  priority
+                />
                 <span className="text-sm font-semibold tracking-widest text-[var(--color-accent-text)] uppercase">
                   360Trader
                 </span>
