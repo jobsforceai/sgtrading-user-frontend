@@ -31,9 +31,18 @@ export async function register(prevState: unknown, formData: FormData) {
     };
   }
   try {
-    const { data } = await api.post("/auth/register", validatedFields.data);
-    console.log("Registration successful:", data);
-    return data;
+    // First, register the user
+    await api.post("/auth/register", validatedFields.data);
+    
+    // Then, immediately log them in
+    const { email, password } = validatedFields.data;
+    const loginData = { email, password };
+    
+    const { data: loginResponse } = await api.post("/auth/login/password", loginData);
+    
+    console.log("Registration and login successful:", loginResponse);
+    return loginResponse;
+
   } catch (error) {
     const errorMessage =
       isAxiosError(error) && error.response?.data?.message

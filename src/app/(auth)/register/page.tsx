@@ -10,15 +10,16 @@ import ErrorMessage from '@/components/ui/ErrorMessage';
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { setUser } = useAuthStore();
+  const { setUser, setTokens } = useAuthStore();
   const [state, formAction] = useActionState(register, undefined);
 
   useEffect(() => {
-    if (state?.data) {
-      setUser(state.data.user);
-      router.push('/login');
+    if (state && !state.error && state.user && state.tokens) {
+      setUser(state.user);
+      setTokens(state.tokens);
+      router.push('/trade');
     }
-  }, [state, router, setUser]);
+  }, [state, router, setUser, setTokens]);
 
   return (
     <div className="relative min-h-screen bg-black flex items-center justify-center p-4">
