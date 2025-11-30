@@ -21,6 +21,7 @@ interface Trade {
   exitPrice?: number;
   createdAt: string;
   expiresAt: string;
+  openAt?: string;
   settledAt: string;
   closedAt: string;
   outcome: 'WIN' | 'LOSS' | 'DRAW';
@@ -28,6 +29,8 @@ interface Trade {
   isInsured: boolean;
   platformFee: number;
   mode: 'LIVE' | 'DEMO';
+  requestedExpirySeconds?: number;
+  expirySeconds?: number;
 }
 
 interface HistoricalData {

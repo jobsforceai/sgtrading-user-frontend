@@ -57,9 +57,16 @@ export default function SgcRedemption({ onRedemptionSuccess }: { onRedemptionSuc
         )}
 
         {state?.data && (
-           <p className="text-sm text-green-500">
+          <p className="text-sm text-green-500">
             <strong>Success!</strong><br />
-            Credited: <strong>${(state.data.amountUsd as number).toFixed(2)} USD</strong><br />
+            Deposited: <strong>${(state.data.amountUsd as number).toFixed(2)} USD</strong>
+            {state.data.bonusAmount > 0 && (
+              <>
+                <br />
+                <span className="font-bold text-yellow-400">+ ${(state.data.bonusAmount as number).toFixed(2)} Bonus Applied!</span>
+              </>
+            )}
+            <br />
             (from {state.data.originalSgcAmount} SGC)
           </p>
         )}

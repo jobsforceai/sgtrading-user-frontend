@@ -31,14 +31,16 @@ export async function register(prevState: unknown, formData: FormData) {
     };
   }
   try {
-    const { data } = await api.post("/auth/register", validatedFields.data);
-    console.log("Registration successful:", data);
-    return data;
+    // Only register the user. Do not log them in.
+    await api.post("/auth/register", validatedFields.data);
+    
+    return { success: true, message: "Registration successful! You will be redirected to login." };
+
   } catch (error) {
     const errorMessage =
       isAxiosError(error) && error.response?.data?.message
         ? (error.response.data.message as string)
-        : "An error occurred";
+        : "An error occurred during registration.";
     return {
       error: errorMessage,
     };

@@ -10,6 +10,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { UserCircle2, LogOut, Bot, LineChart, Landmark, Menu, X } from 'lucide-react';
 import ProfileSidebar from './ProfileSidebar';
+import Image from 'next/image';
 
 export default function Header() {
   const { user, logout } = useAuthStore();
@@ -72,11 +73,11 @@ export default function Header() {
             {/* Left: Logo */}
             <div className="flex items-center space-x-4">
               <Link href="/" className="flex items-center space-x-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--bg-accent-subtle)] ring-1 ring-[var(--ring-accent)]">
-                  <div className="h-4 w-4 rounded-lg bg-[var(--dot-accent)]" />
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-900 ring-1 ring-[var(--ring-accent)]">
+                  <Image src="/bull.png" alt="Logo" width={40} height={40} />
                 </div>
                 <span className="text-sm font-semibold tracking-widest text-[var(--color-accent-text)] uppercase">
-                  360Trader
+                  SGXTrader
                 </span>
               </Link>
             </div>
@@ -131,14 +132,14 @@ export default function Header() {
                     <span className="text-xs text-gray-500 uppercase">
                       {tradingMode} Balance
                     </span>
-                    <span className="text-sm font-bold text-gray-200">
-                      {wallet?.currency || '$'} {currentBalance.toFixed(2)}
-                    </span>
                     {wallet && (
-                      <span className="text-xs font-medium text-gray-500">
-                        ~ {(currentBalance / 115).toFixed(2)} SGC
+                      <span className="text-sm font-bold text-emerald-400">
+                        {(currentBalance / 115).toFixed(2)} SGC
                       </span>
                     )}
+                    <span className="text-xs font-medium text-gray-400">
+                      ~ {wallet?.currency || '$'} {currentBalance.toFixed(2)}
+                    </span>
                   </div>
 
                   <button

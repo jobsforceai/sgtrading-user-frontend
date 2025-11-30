@@ -7,6 +7,7 @@ import { getWallet } from '@/actions/user';
 import { useUserStore } from '@/store/user';
 import { Landmark, ShieldCheck, X, Plus, Timer } from 'lucide-react';
 import { Tooltip } from '@/components/ui/Tooltip';
+import Confetti from 'react-confetti';
 
 type Vault = any; 
 type Bot = any;
@@ -90,6 +91,8 @@ export default function VaultsPage() {
   const { setWallet } = useUserStore();
   const [isActivateModalOpen, setIsActivateModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'ACTIVE' | 'HISTORY'>('ACTIVE');
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [windowDimensions, setWindowDimensions] = useState({ width: 0, height: 0 });
 
   const fetchVaultsAndWallet = useCallback(async () => {
     getVaults().then(res => {
@@ -101,10 +104,30 @@ export default function VaultsPage() {
   }, [setWallet]);
 
   useEffect(() => {
+    // Set window dimensions on client side
+    setWindowDimensions({
+      width: window.innerWidth,
+      height: window.innerHeight
+    });
+    
+    const handleResize = () => {
+      setWindowDimensions({
+        width: window.innerWidth,
+        height: window.innerHeight
+      });
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
     fetchVaultsAndWallet();
   }, [fetchVaultsAndWallet]);
   
   const onActionSuccess = () => {
+      setShowConfetti(true);
+      setTimeout(() => setShowConfetti(false), 3000);
       fetchVaultsAndWallet();
       setIsModalOpen(false);
       setIsCreateModalOpen(false);
@@ -150,6 +173,18 @@ export default function VaultsPage() {
 
   return (
     <div className="min-h-screen bg-black text-gray-300 p-6">
+      {showConfetti && windowDimensions.width > 0 && (
+        <div className="fixed inset-0 z-50 pointer-events-none">
+          <Confetti
+            width={windowDimensions.width}
+            height={windowDimensions.height}
+            recycle={false}
+            numberOfPieces={300}
+            gravity={0.2}
+            colors={['#FFD700', '#FFA500', '#FF6347', '#00CED1', '#9370DB']}
+          />
+        </div>
+      )}
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
           <h1 className="text-2xl font-bold text-white">Investment Vaults</h1>
@@ -320,9 +355,16 @@ const DepositModal = ({ vault, onClose, onDepositSuccess }: { vault: Vault, onCl
         formData.append('amountUsd', amount);
         formData.append('buyInsurance', String(buyInsurance));
         
-        await depositToVault(vault._id, null, formData);
-        onDepositSuccess();
-        onClose();
+        const result = await depositToVault(vault._id, null, formData);
+        
+        // Only trigger success callback if deposit was successful
+        if (result && !result.error) {
+            onDepositSuccess();
+            onClose();
+        } else {
+            // Show error if deposit failed
+            setError(result?.error || 'Deposit failed');
+        }
     };
     
     const feeTier = getFeeTier(vault.botId?.strategy);
