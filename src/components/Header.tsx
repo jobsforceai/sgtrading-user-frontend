@@ -73,14 +73,9 @@ export default function Header() {
             {/* Left: Logo */}
             <div className="flex items-center space-x-4">
               <Link href="/" className="flex items-center space-x-2">
-                <Image
-                  src="/360logo.png"
-                  alt="SgTrading Logo"
-                  width={40}
-                  height={40}
-                  className="h-8 w-auto"
-                  priority
-                />
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-900 ring-1 ring-[var(--ring-accent)]">
+                  <Image src="/bull.png" alt="Logo" width={40} height={40} />
+                </div>
                 <span className="text-sm font-semibold tracking-widest text-[var(--color-accent-text)] uppercase">
                   360Trader
                 </span>
