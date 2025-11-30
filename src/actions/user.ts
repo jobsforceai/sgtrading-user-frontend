@@ -3,8 +3,9 @@
 import api from '@/lib/api';
 import { cookies } from 'next/headers';
 import { isAxiosError } from 'axios';
+import { User } from '@/store/user';
 
-export async function getProfile() {
+export async function getProfile(): Promise<User | { error: string }> {
   const cookieStore = await cookies();
   const token = cookieStore.get('accessToken');
 
@@ -15,12 +16,12 @@ export async function getProfile() {
   }
 
   try {
-    const { data } = await api.get('/users/me', {
+    const { data } = await api.get<User>('/users/me', {
       headers: {
         Authorization: `Bearer ${token.value}`,
       },
     });
-    return { data };
+    return data;
   } catch (error) {
     const errorMessage = isAxiosError(error) && error.response?.data?.message
       ? (error.response.data.message as string)

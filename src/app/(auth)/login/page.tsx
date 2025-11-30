@@ -34,7 +34,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     console.log('Login state changed:', finalLoginState);
-    if (finalLoginState && !finalLoginState.error) {
+    if (finalLoginState?.user && finalLoginState?.tokens) {
       setUser(finalLoginState.user);
       setTokens(finalLoginState.tokens);
       router.push('/trade');

@@ -30,7 +30,7 @@ export default function ProfileSidebar({ isOpen, onClose }: { isOpen: boolean; o
   useEffect(() => {
     async function fetchData() {
       const profile = await getProfile();
-      if (profile && !profile.error) {
+      if (profile && '_id' in profile) {
         setUser(profile);
       }
       fetchWalletData();
