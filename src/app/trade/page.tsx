@@ -195,7 +195,17 @@ export default function TradePage() {
             isWinning = latestPrice < trade.entryPrice;
           }
         }
-        return { ...trade, isWinning };
+        
+        // Compute expiry time if not present (for real-time prediction)
+        let computedExpiresAt = trade.expiresAt;
+        if (!computedExpiresAt && trade.requestedExpirySeconds && trade.openAt) {
+          // Parse openAt to timestamp
+          const openTime = new Date(trade.openAt).getTime();
+          const expiryTime = openTime + (trade.requestedExpirySeconds * 1000);
+          computedExpiresAt = new Date(expiryTime).toISOString();
+        }
+        
+        return { ...trade, isWinning, expiresAt: computedExpiresAt };
       });
   }, [openTrades, activeSymbol, ticks]);
 
