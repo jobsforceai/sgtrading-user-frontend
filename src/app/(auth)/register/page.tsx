@@ -1,25 +1,25 @@
 'use client';
 
 import { register } from '@/actions/auth';
-import { useAuthStore } from '@/store/auth';
 import { useRouter } from 'next/navigation';
-import { useActionState, useEffect } from 'react';
+import { useActionState, useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { setUser, setTokens } = useAuthStore();
   const [state, formAction] = useActionState(register, undefined);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (state && !state.error && state.user && state.tokens) {
-      setUser(state.user);
-      setTokens(state.tokens);
-      router.push('/trade');
+    if (state?.success && state.message) {
+      setSuccessMessage(state.message);
+      setTimeout(() => {
+        router.push('/login');
+      }, 2000); // 2-second delay before redirect
     }
-  }, [state, router, setUser, setTokens]);
+  }, [state, router]);
 
   return (
     <div className="relative min-h-screen bg-black flex items-center justify-center p-4">
@@ -83,10 +83,16 @@ export default function RegisterPage() {
             {state?.error && (
               <ErrorMessage message={state.error} />
             )}
+            {successMessage && (
+              <div className="p-3 text-sm text-green-400 bg-green-900/20 border border-green-400/30 rounded-lg">
+                {successMessage}
+              </div>
+            )}
             <div>
               <button
                 type="submit"
-                className="w-full px-4 py-2 text-sm font-medium text-white bg-emerald-600 border border-transparent rounded-md shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
+                disabled={!!successMessage}
+                className="w-full px-4 py-2 text-sm font-medium text-white bg-emerald-600 border border-transparent rounded-md shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:opacity-50"
               >
                 Register
               </button>

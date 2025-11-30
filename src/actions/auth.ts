@@ -31,23 +31,16 @@ export async function register(prevState: unknown, formData: FormData) {
     };
   }
   try {
-    // First, register the user
+    // Only register the user. Do not log them in.
     await api.post("/auth/register", validatedFields.data);
     
-    // Then, immediately log them in
-    const { email, password } = validatedFields.data;
-    const loginData = { email, password };
-    
-    const { data: loginResponse } = await api.post("/auth/login/password", loginData);
-    
-    console.log("Registration and login successful:", loginResponse);
-    return loginResponse;
+    return { success: true, message: "Registration successful! You will be redirected to login." };
 
   } catch (error) {
     const errorMessage =
       isAxiosError(error) && error.response?.data?.message
         ? (error.response.data.message as string)
-        : "An error occurred";
+        : "An error occurred during registration.";
     return {
       error: errorMessage,
     };

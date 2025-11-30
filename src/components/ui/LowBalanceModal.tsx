@@ -34,11 +34,14 @@ export default function LowBalanceModal({
           <p className="text-sm text-gray-300 mb-2">
             Your current live balance is:
           </p>
-          <p className="text-3xl font-bold text-white mb-6">
+          <p className="text-3xl font-bold text-white mb-4">
             ${liveBalance.toFixed(2)}
           </p>
+          <div className="bg-yellow-900/20 border border-yellow-400/30 rounded-lg p-3 text-sm text-yellow-300 mb-6">
+            <strong>🎁 Today&apos;s Offer:</strong> Get a <strong>100% bonus</strong> on your first deposit!
+          </div>
           <p className="text-sm text-gray-400 mb-6">
-            Top up your account now to continue trading without interruptions.
+            Top up now to claim your bonus and continue trading without interruptions.
           </p>
           <div className="flex flex-col space-y-3">
             <button
