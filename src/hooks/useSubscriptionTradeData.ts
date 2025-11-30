@@ -70,7 +70,7 @@ export const useSubscriptionTradeData = () => {
             if (settledTrade) {
               newHistoryItems.push(settledTrade);
               setNotification({
-                message: `Trade ${settledTrade.symbol} ${settledTrade.outcome}! Payout: $${Number(settledTrade.payoutAmount ?? 0).toFixed(2)}`,
+                message: `Trade ${settledTrade.instrumentSymbol || settledTrade.symbol} ${settledTrade.outcome}! Payout: $${Number(settledTrade.payoutAmount ?? 0).toFixed(2)}`,
                 type: settledTrade.outcome === 'WIN' ? 'success' : 'error',
               });
             }

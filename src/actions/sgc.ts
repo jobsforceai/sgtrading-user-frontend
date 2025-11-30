@@ -73,12 +73,12 @@ export async function createSgcWithdrawalCode(prevState: unknown, formData: Form
     };
   }
 
-  const walletData = await getWallet();
-  if (walletData.error || !walletData.data) {
+  const walletData = await getWallet(token.value);
+  if (walletData.error) {
     return { error: "Could not retrieve wallet information." };
   }
 
-  if (validatedFields.data.amountUsd > walletData.data.liveBalanceUsd) {
+  if (validatedFields.data.amountUsd > walletData.liveBalanceUsd) {
     return { error: "Insufficient live balance." };
   }
 
