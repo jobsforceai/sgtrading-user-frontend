@@ -6,7 +6,7 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "360Trader",
+  title: "SGXTrader",
   description: "The Fastest and Secure AI Trading Assistant.",
 };
 

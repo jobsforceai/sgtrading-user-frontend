@@ -19,6 +19,7 @@ import TradePanel from './components/TradePanel';
 import Toolbar from './components/Toolbar';
 import Header from '@/components/Header';
 import TradesTable from './components/TradesTable';
+import Confetti from 'react-confetti';
 
 type Instrument = {
   _id: string;
@@ -58,8 +59,28 @@ export default function TradePage() {
 
   const [createTradeState, createTradeFormAction] = useActionState(createTrade, undefined);
   const { tradingMode, setWallet } = useUserStore();
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [windowDimensions, setWindowDimensions] = useState({ width: 0, height: 0 });
 
   useSubscriptionTradeData();
+
+  useEffect(() => {
+    // Set window dimensions on client side
+    setWindowDimensions({
+      width: window.innerWidth,
+      height: window.innerHeight
+    });
+    
+    const handleResize = () => {
+      setWindowDimensions({
+        width: window.innerWidth,
+        height: window.innerHeight
+      });
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const fetchWallet = React.useCallback(async () => {
       const res = await getWallet();
@@ -75,6 +96,9 @@ export default function TradePage() {
   useEffect(() => {
       if (createTradeState?.data) {
           fetchWallet();
+          // Trigger confetti on successful trade
+          setShowConfetti(true);
+          setTimeout(() => setShowConfetti(false), 3000);
       }
   }, [createTradeState, fetchWallet]);
 
@@ -211,6 +235,18 @@ export default function TradePage() {
 
   return (
     <div className="flex flex-col h-screen bg-[#131722] text-gray-300 overflow-hidden font-sans relative">
+      {showConfetti && windowDimensions.width > 0 && (
+        <div className="fixed inset-0 z-50 pointer-events-none">
+          <Confetti
+            width={windowDimensions.width}
+            height={windowDimensions.height}
+            recycle={false}
+            numberOfPieces={300}
+            gravity={0.2}
+            colors={['#FFD700', '#FFA500', '#FF6347', '#00CED1', '#9370DB']}
+          />
+        </div>
+      )}
       <Header />
       {notification && (
           <div className={`absolute top-14 left-1/2 transform -translate-x-1/2 z-50 px-6 py-3 rounded shadow-lg font-bold transition-opacity duration-500 ${notification.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>

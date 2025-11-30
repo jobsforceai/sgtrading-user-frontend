@@ -77,7 +77,7 @@ export default function Header() {
                   <Image src="/bull.png" alt="Logo" width={40} height={40} />
                 </div>
                 <span className="text-sm font-semibold tracking-widest text-[var(--color-accent-text)] uppercase">
-                  360Trader
+                  SGXTrader
                 </span>
               </Link>
             </div>
@@ -132,14 +132,14 @@ export default function Header() {
                     <span className="text-xs text-gray-500 uppercase">
                       {tradingMode} Balance
                     </span>
-                    <span className="text-sm font-bold text-gray-200">
-                      {wallet?.currency || '$'} {currentBalance.toFixed(2)}
-                    </span>
                     {wallet && (
-                      <span className="text-xs font-medium text-gray-500">
-                        ~ {(currentBalance / 115).toFixed(2)} SGC
+                      <span className="text-sm font-bold text-emerald-400">
+                        {(currentBalance / 115).toFixed(2)} SGC
                       </span>
                     )}
+                    <span className="text-xs font-medium text-gray-400">
+                      ~ {wallet?.currency || '$'} {currentBalance.toFixed(2)}
+                    </span>
                   </div>
 
                   <button
