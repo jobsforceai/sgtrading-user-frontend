@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-interface User {
+export interface User {
   _id: string;
   email: string;
   fullName: string;
@@ -11,7 +11,7 @@ interface User {
   updatedAt: string;
 }
 
-interface Wallet {
+export interface Wallet {
   _id: string;
   userId: string;
   liveBalanceUsd: number;
