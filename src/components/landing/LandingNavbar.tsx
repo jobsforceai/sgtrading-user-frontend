@@ -56,7 +56,7 @@ import Image from 'next/image';
                      key={item}
                      href={href}
                      aria-label={item}
-                     className={`text-[11px] font-medium transition-colors ${
+                     className={`text-sm font-medium transition-colors ${
                        item === 'Trade' ? 'text-white' : 'text-slate-400 hover:text-slate-100'
                      }`}
                    >
@@ -82,7 +82,7 @@ import Image from 'next/image';
        <div className="w-40 flex justify-end">
          <Link
            href="/login"
-           className="hidden text-xs font-medium text-slate-300 hover:text-white md:inline-block"
+           className="hidden md:inline-block text-sm font-medium text-slate-300 hover:text-white border border-slate-700 hover:bg-slate-800 px-3 py-1.5 rounded-full transition-colors"
          >
            Sign in
          </Link>

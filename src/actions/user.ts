@@ -20,7 +20,7 @@ export async function getProfile() {
         Authorization: `Bearer ${token.value}`,
       },
     });
-    return data;
+    return { data };
   } catch (error) {
     const errorMessage = isAxiosError(error) && error.response?.data?.message
       ? (error.response.data.message as string)
@@ -31,11 +31,18 @@ export async function getProfile() {
   }
 }
 
-export async function getWallet() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get('accessToken');
+export async function getWallet(token?: string) {
+  let authToken = token;
 
-  if (!token) {
+  if (!authToken) {
+    const cookieStore = await cookies();
+    const tokenCookie = cookieStore.get('accessToken');
+    if (tokenCookie) {
+      authToken = tokenCookie.value;
+    }
+  }
+
+  if (!authToken) {
     return {
       error: 'Not authenticated',
     };
@@ -44,7 +51,7 @@ export async function getWallet() {
   try {
     const { data } = await api.get('/wallets/me', {
       headers: {
-        Authorization: `Bearer ${token.value}`,
+        Authorization: `Bearer ${authToken}`,
       },
     });
     return data;
