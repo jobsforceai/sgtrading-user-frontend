@@ -49,7 +49,7 @@ export function FeaturesSection() {
         </h2>
 
         <p className="max-w-2xl text-xs text-slate-400 sm:text-sm">
-          360Trader is an all-in-one crypto trading platform with a range of pro
+          SGXTrader is an all-in-one crypto trading platform with a range of pro
           trading tools designed for traders of every skill level.
         </p>
       </div>

@@ -7,6 +7,7 @@ import { getWallet } from '@/actions/user';
 import { useUserStore } from '@/store/user';
 import { Landmark, ShieldCheck, X, Plus, Timer } from 'lucide-react';
 import { Tooltip } from '@/components/ui/Tooltip';
+import confetti from 'canvas-confetti';
 
 type Vault = any; 
 type Bot = any;
@@ -321,6 +322,14 @@ const DepositModal = ({ vault, onClose, onDepositSuccess }: { vault: Vault, onCl
         formData.append('buyInsurance', String(buyInsurance));
         
         await depositToVault(vault._id, null, formData);
+        
+        // Trigger confetti animation
+        confetti({
+            particleCount: 100,
+            spread: 70,
+            origin: { y: 0.6 }
+        });
+        
         onDepositSuccess();
         onClose();
     };
