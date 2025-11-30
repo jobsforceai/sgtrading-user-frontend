@@ -31,9 +31,9 @@ export function Hero() {
 
         {/* Main heading */}
         <h1 className="mb-5 text-4xl font-semibold leading-tight tracking-tight text-slate-50 sm:text-5xl md:text-6xl">
-          The Fastest and Secure
+          The Future of Fast 
           <br className="hidden sm:block" />
-          AI Trading Assistant.
+          and Secure Trading.
         </h1>
 
         {/* Sub text */}

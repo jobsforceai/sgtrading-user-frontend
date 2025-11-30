@@ -12,7 +12,7 @@ import Image from 'next/image';
         <div className="flex items-center gap-3">
           <div className="relative w-24 md:w-40 h-8 md:h-10">
             <Image
-              src="/360logo.png"
+              src="/360logo1.png"
               alt="SgTrading Logo"
               fill
               sizes="(max-width: 768px) 6rem, 10rem"
