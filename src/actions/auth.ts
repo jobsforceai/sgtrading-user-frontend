@@ -60,7 +60,7 @@ export async function requestOtp(prevState: unknown, formData: FormData) {
 
   try {
     const { data } = await api.post("/auth/otp/request", validatedFields.data);
-    return data;
+    return { data };
   } catch (error) {
     const errorMessage =
       isAxiosError(error) && error.response?.data?.message
