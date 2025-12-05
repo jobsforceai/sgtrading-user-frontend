@@ -77,7 +77,7 @@ export default function Header() {
                   <Image src="/bull.png" alt="Logo" width={40} height={40} />
                 </div>
                 <span className="text-sm font-semibold tracking-widest text-[var(--color-accent-text)] uppercase">
-                  SGXTrader
+                  SG5Trader
                 </span>
               </Link>
             </div>

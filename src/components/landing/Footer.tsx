@@ -11,10 +11,10 @@ export function Footer() {
       <div className="pointer-events-none absolute inset-0 bg-footer-grid opacity-20" />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.45),transparent_70%)]" />
 
-      {/* huge SGXTrader word in background */}
+      {/* huge SG5Trader word in background */}
       <div className="pointer-events-none absolute inset-x-[-4vw] -bottom-20 z-0 flex justify-center">
         <span className="footer-brand-text select-none text-[15vw] leading-none opacity-[0.4]">
-          SGXTrader
+          SG5Trader
         </span>
       </div>
 
@@ -26,7 +26,7 @@ export function Footer() {
             <Image src="/bull.png" alt="Logo" width={40} height={40} />
           </div>
           <span className="text-xs font-semibold tracking-[0.3em] text-emerald-300">
-            SGXTrader
+            SG5Trader
           </span>
         </div>
 
@@ -69,7 +69,7 @@ export function Footer() {
 
       {/* bottom row: copyright + font note */}
       <div className="relative z-10 mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-6 pb-8 pt-4 text-[11px] text-slate-500 md:flex-row md:px-10">
-        <p>© {year} SGXTrader. All rights reserved.</p>
+        <p>© {year} SG5Trader. All rights reserved.</p>
 
       </div>
     </footer>
